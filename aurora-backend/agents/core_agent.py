@@ -26,133 +26,67 @@ class AuroraCoreAgent:
         self.data_agent = DataAgent()
         self.viz_agent = VizAgent()
         self.narrative_agent = NarrativeAgent()
-        
-        # Query type keywords
-        self.analysis_keywords = [
-            "analyze", "analysis", "analyze", "statistics", "stats",
-            "calculate", "compute", "process", "data"
-        ]
-        self.viz_keywords = [
-            "visualize", "visualization", "chart", "graph", "plot",
-            "show", "display", "diagram", "visual"
-        ]
-        self.narrative_keywords = [
-            "explain", "explanation", "describe", "story", "narrative",
-            "tell", "summary", "summary", "interpret"
-        ]
     
-    def run(self, query: str, query_type: Optional[str] = None, 
-            context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def run(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Orchestrate agent execution based on query type.
+        Orchestrate agent execution based on query keywords.
+        
+        Logic:
+        1. If query includes "analyze" → call DataAgent
+        2. If query includes "visualize" → call VizAgent
+        3. If query includes "explain" → call NarrativeAgent
+        4. Otherwise → run all and return combined results
         
         Args:
             query: User's natural language query
-            query_type: Explicit query type ("analysis", "visualization", "explanation", "combined")
-                       If None, will be auto-detected
             context: Optional context data
         
         Returns:
-            Dictionary containing results from all relevant agents
-        """
-        # Auto-detect query type if not provided
-        if not query_type:
-            query_type = self._detect_query_type(query)
-        
-        results = {
-            "query": query,
-            "query_type": query_type,
-            "timestamp": datetime.now().isoformat(),
-            "agents_executed": [],
-        }
-        
-        # Execute agents based on query type
-        if query_type == "analysis":
-            results["analysis"] = self.data_agent.run(query, context)
-            results["agents_executed"].append("DataAgent")
-            
-        elif query_type == "visualization":
-            data_result = self.data_agent.run(query, context)
-            results["analysis"] = data_result
-            results["visualization"] = self.viz_agent.run(query, data_result.get("result"))
-            results["agents_executed"].extend(["DataAgent", "VizAgent"])
-            
-        elif query_type == "explanation":
-            data_result = self.data_agent.run(query, context)
-            results["analysis"] = data_result
-            insights = data_result.get("result", {}).get("insights", [])
-            results["narrative"] = self.narrative_agent.run(query, data_result.get("result"), insights)
-            results["agents_executed"].extend(["DataAgent", "NarrativeAgent"])
-            
-        elif query_type == "combined":
-            # Execute all agents
-            data_result = self.data_agent.run(query, context)
-            results["analysis"] = data_result
-            
-            insights = data_result.get("result", {}).get("insights", [])
-            results["visualization"] = self.viz_agent.run(query, data_result.get("result"))
-            results["narrative"] = self.narrative_agent.run(query, data_result.get("result"), insights)
-            results["agents_executed"].extend(["DataAgent", "VizAgent", "NarrativeAgent"])
-            
-        else:
-            # Default: run all agents
-            data_result = self.data_agent.run(query, context)
-            results["analysis"] = data_result
-            insights = data_result.get("result", {}).get("insights", [])
-            results["visualization"] = self.viz_agent.run(query, data_result.get("result"))
-            results["narrative"] = self.narrative_agent.run(query, data_result.get("result"), insights)
-            results["agents_executed"].extend(["DataAgent", "VizAgent", "NarrativeAgent"])
-        
-        # Generate final response summary
-        results["summary"] = self._generate_response_summary(query_type, results)
-        results["success"] = True
-        
-        return {
-            "agent": self.name,
-            "result": results,
-            "success": True,
-        }
-    
-    def _detect_query_type(self, query: str) -> str:
-        """
-        Detect query type from natural language query.
-        
-        Returns:
-            "analysis", "visualization", "explanation", or "combined"
+            Structured JSON with keys: data, chart, insight
         """
         query_lower = query.lower()
         
-        has_analysis = any(keyword in query_lower for keyword in self.analysis_keywords)
-        has_viz = any(keyword in query_lower for keyword in self.viz_keywords)
-        has_narrative = any(keyword in query_lower for keyword in self.narrative_keywords)
+        # Initialize result structure
+        result = {}
         
-        # Count matches to determine type
-        match_count = sum([has_analysis, has_viz, has_narrative])
+        # 1. If query includes "analyze" → call DataAgent
+        if "analyze" in query_lower:
+            data_result = self.data_agent.run(query, context)
+            result["data"] = data_result.get("result", {})
         
-        if match_count == 0:
-            # Default to combined if no keywords detected
-            return "combined"
-        elif match_count == 1:
-            # Single intent
-            if has_analysis and not has_viz and not has_narrative:
-                return "analysis"
-            elif has_viz:
-                return "visualization"
-            elif has_narrative:
-                return "explanation"
-        else:
-            # Multiple intents - return combined
-            return "combined"
+        # 2. If query includes "visualize" → call VizAgent
+        if "visualize" in query_lower:
+            # Need data for visualization, so run DataAgent first if not already done
+            if "data" not in result:
+                data_result = self.data_agent.run(query, context)
+                result["data"] = data_result.get("result", {})
+            
+            viz_result = self.viz_agent.run(query, result.get("data"))
+            result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+        
+        # 3. If query includes "explain" → call NarrativeAgent
+        if "explain" in query_lower:
+            # Need data for explanation, so run DataAgent first if not already done
+            if "data" not in result:
+                data_result = self.data_agent.run(query, context)
+                result["data"] = data_result.get("result", {})
+            
+            narrative_result = self.narrative_agent.run(result["data"])
+            # Extract explanation text
+            result["insight"] = narrative_result.get("result", {}).get("explanation", "")
+        
+        # 4. Otherwise → run all and return combined results
+        if not any(keyword in query_lower for keyword in ["analyze", "visualize", "explain"]):
+            # Run all agents
+            data_result = self.data_agent.run(query, context)
+            result["data"] = data_result.get("result", {})
+            
+            viz_result = self.viz_agent.run(query, result["data"])
+            result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+            
+            narrative_result = self.narrative_agent.run(result["data"])
+            result["insight"] = narrative_result.get("result", {}).get("explanation", "")
+        
+        return result
     
-    def _generate_response_summary(self, query_type: str, results: Dict[str, Any]) -> str:
-        """Generate a summary of the agent execution"""
-        agents_count = len(results.get("agents_executed", []))
-        
-        summary = f"""
-Query processed successfully using {agents_count} agent(s).
-Query type: {query_type}
-Agents executed: {', '.join(results.get('agents_executed', []))}
-        """.strip()
-        
-        return summary
 

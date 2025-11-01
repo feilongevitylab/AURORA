@@ -12,6 +12,8 @@ import random
 from datetime import datetime, timedelta
 from typing import List, Optional
 
+from agents.core_agent import AuroraCoreAgent
+
 load_dotenv()
 
 app = FastAPI(
@@ -45,8 +47,7 @@ async def health_check():
 # Pydantic models for request/response
 class InsightRequest(BaseModel):
     """Request model for insight endpoint"""
-    query: Optional[str] = None
-    context: Optional[dict] = None
+    query: str
 
 
 class HRVDataPoint(BaseModel):
@@ -162,30 +163,29 @@ async def get_stress_data(days: int = 7):
 @app.post("/api/insight")
 async def get_insight(request: InsightRequest):
     """
-    Get AI-generated insight based on query and context.
+    Get AI-generated insight, data analysis, and visualization based on query.
     
     Args:
-        request: InsightRequest containing query and optional context
+        request: InsightRequest containing query string
     
     Returns:
-        AI-generated insight as text
+        Combined JSON with keys: data, chart, insight
     """
-    # Placeholder text for now
-    placeholder_insight = f"""
-    Based on your query: "{request.query or 'No query provided'}",
-    here is an AI-generated insight placeholder. This endpoint will be 
-    integrated with LangChain and PandasAI to provide real insights 
-    from physiological data analysis.
-    
-    Context: {request.context or 'No context provided'}
-    """
-    
-    return {
-        "insight": placeholder_insight.strip(),
-        "timestamp": datetime.now().isoformat(),
-        "query": request.query,
-        "context": request.context,
-    }
+    try:
+        # Initialize core agent
+        core_agent = AuroraCoreAgent()
+        
+        # Process query through core agent
+        result = core_agent.run(request.query)
+        
+        # Return the combined JSON (data, chart, insight)
+        return result
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing query: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

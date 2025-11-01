@@ -1,125 +1,148 @@
 """
-Visualization Agent - Handles chart generation and visualization configuration.
+Visualization Agent - Handles chart generation using Plotly.
 """
 
 from typing import Dict, Any, Optional
 from datetime import datetime
-import random
+import plotly.graph_objects as go
+import pandas as pd
+import json
+import os
 
 
 class VizAgent:
     """
     Agent responsible for visualization operations including:
-    - Chart type selection
-    - Visualization configuration
-    - Plotly.js chart specs generation
+    - Chart generation using Plotly
+    - HRV vs Stress scatter plot generation
     - Visual data representation
     """
     
     def __init__(self):
         """Initialize the Visualization Agent"""
         self.name = "VizAgent"
-        self.chart_types = ["line", "bar", "scatter", "pie", "heatmap", "box"]
     
     def run(self, query: str, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Generate visualization configuration based on the query and data.
+        Generate visualization using Plotly for HRV vs Stress scatter plot.
         
         Args:
             query: Natural language query for visualization
-            data: Optional data to visualize
+            data: Optional data to visualize (can contain DataAgent results)
         
         Returns:
-            Dictionary containing Plotly.js configuration
+            Dictionary containing Plotly figure as JSON
         """
-        # Determine appropriate chart type based on query
-        chart_type = self._determine_chart_type(query)
+        # Generate scatter plot of HRV vs Stress
+        fig = self._create_hrv_vs_stress_scatter()
         
-        # Mock Plotly.js configuration
-        plotly_config = {
-            "data": [
-                {
-                    "x": list(range(10)),
-                    "y": [random.uniform(0, 100) for _ in range(10)],
-                    "type": chart_type,
-                    "name": "Dataset 1",
-                    "marker": {
-                        "color": self._get_color_for_type(chart_type),
-                    },
-                }
-            ],
-            "layout": {
-                "title": {
-                    "text": self._generate_title(query),
-                    "font": {"size": 18},
-                },
-                "xaxis": {
-                    "title": "Time",
-                    "showgrid": True,
-                },
-                "yaxis": {
-                    "title": "Value",
-                    "showgrid": True,
-                },
-                "hovermode": "closest",
-                "template": "plotly_white",
-            },
-            "config": {
-                "responsive": True,
-                "displayModeBar": True,
-            },
-        }
+        # Convert figure to JSON using to_json() with default engine
+        # This returns a JSON string that we parse to dict
+        fig_json = json.loads(fig.to_json())
         
         return {
             "agent": self.name,
             "result": {
-                "chart_type": chart_type,
-                "plotly_config": plotly_config,
+                "chart_type": "scatter",
+                "plotly_json": fig_json,
+                "query": query,
                 "recommendations": [
-                    f"Recommended chart type: {chart_type}",
+                    "Scatter plot showing HRV vs Stress relationship",
                     "Interactive zoom and pan enabled",
-                    "Hover tooltips configured",
+                    "Hover tooltips show individual data points",
                 ],
                 "timestamp": datetime.now().isoformat(),
             },
             "success": True,
         }
     
-    def _determine_chart_type(self, query: str) -> str:
-        """Determine the best chart type based on query keywords"""
-        query_lower = query.lower()
+    def _create_hrv_vs_stress_scatter(self) -> go.Figure:
+        """
+        Create a scatter plot of HRV vs Stress using Plotly.
+        Uses mock data from CSV file or generates mock data.
         
-        if any(word in query_lower for word in ["trend", "over time", "timeline"]):
-            return "line"
-        elif any(word in query_lower for word in ["compare", "category", "bar"]):
-            return "bar"
-        elif any(word in query_lower for word in ["correlation", "scatter", "relationship"]):
-            return "scatter"
-        elif any(word in query_lower for word in ["distribution", "box", "whisker"]):
-            return "box"
-        elif any(word in query_lower for word in ["heatmap", "correlation matrix"]):
-            return "heatmap"
-        elif any(word in query_lower for word in ["pie", "proportion", "percentage"]):
-            return "pie"
+        Returns:
+            Plotly Figure object
+        """
+        # Load mock HRV data
+        df = self._load_mock_data()
+        
+        # Create scatter plot
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=df["stress_score"],
+            y=df["hrv"],
+            mode='markers',
+            marker=dict(
+                size=12,
+                color=df["hrv"],
+                colorscale='Viridis',
+                showscale=True,
+                colorbar=dict(title="HRV"),
+                line=dict(width=1, color='white')
+            ),
+            text=[f"ID: {id}, Age: {age}" for id, age in zip(df["id"], df["age"])],
+            hovertemplate='<b>Stress Score</b>: %{x}<br>' +
+                         '<b>HRV</b>: %{y}<br>' +
+                         '%{text}<br>' +
+                         '<extra></extra>',
+            name='HRV vs Stress'
+        ))
+        
+        # Update layout
+        fig.update_layout(
+            title={
+                'text': 'HRV vs Stress Score Scatter Plot',
+                'x': 0.5,
+                'xanchor': 'center',
+                'font': {'size': 20}
+            },
+            xaxis=dict(
+                title='Stress Score',
+                showgrid=True,
+                gridcolor='lightgray',
+                zeroline=True
+            ),
+            yaxis=dict(
+                title='Heart Rate Variability (HRV)',
+                showgrid=True,
+                gridcolor='lightgray',
+                zeroline=True
+            ),
+            hovermode='closest',
+            template='plotly_white',
+            width=800,
+            height=600,
+            showlegend=False
+        )
+        
+        return fig
+    
+    def _load_mock_data(self) -> pd.DataFrame:
+        """
+        Load mock HRV data from CSV or generate if not exists.
+        
+        Returns:
+            DataFrame with columns: id, hrv, stress_score, age
+        """
+        csv_path = "mock_hrv_data.csv"
+        
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
         else:
-            return random.choice(self.chart_types)
-    
-    def _get_color_for_type(self, chart_type: str) -> str:
-        """Get color scheme for chart type"""
-        color_map = {
-            "line": "rgb(59, 130, 246)",
-            "bar": "rgb(139, 92, 246)",
-            "scatter": "rgb(236, 72, 153)",
-            "pie": "rgb(251, 191, 36)",
-            "heatmap": "rgb(34, 197, 94)",
-            "box": "rgb(249, 115, 22)",
-        }
-        return color_map.get(chart_type, "rgb(59, 130, 246)")
-    
-    def _generate_title(self, query: str) -> str:
-        """Generate a title for the visualization"""
-        # Extract key terms or use query as title
-        if len(query) > 60:
-            return query[:57] + "..."
-        return query or "Data Visualization"
+            # Generate mock data if CSV doesn't exist
+            mock_data = {
+                "id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                "hrv": [45.2, 52.8, 38.5, 61.3, 49.7, 55.1, 42.9, 58.6, 48.3, 
+                       53.7, 40.1, 56.4, 47.2, 59.8, 44.6],
+                "stress_score": [25, 15, 45, 10, 30, 20, 50, 12, 35, 18, 55, 
+                                22, 28, 8, 40],
+                "age": [28, 32, 25, 35, 30, 27, 22, 38, 29, 33, 26, 31, 34, 40, 24]
+            }
+            df = pd.DataFrame(mock_data)
+            # Save for future use
+            df.to_csv(csv_path, index=False)
+        
+        return df
 

@@ -17,6 +17,9 @@ pandasai==2.0.12
 pandas>=1.5.3,<2.0.0  # Compatible with pandasai 2.0.12
 numpy>=1.24.0,<2.0.0
 
+# Plotly for visualizations
+plotly>=5.18.0
+
 # Utilities
 python-multipart==0.0.6
 python-dotenv==1.0.0
