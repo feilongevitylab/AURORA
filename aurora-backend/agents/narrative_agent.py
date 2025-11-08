@@ -68,7 +68,7 @@ class NarrativeAgent:
         
         print(f"[NarrativeAgent] Initialized in {'OpenAI' if self.use_openai else 'Mock'} mode")
     
-    def run(self, data_summary: Dict[str, Any]) -> Dict[str, Any]:
+    def run(self, data_summary: Dict[str, Any], mode: Optional[str] = None) -> Dict[str, Any]:
         """
         Generate narrative explanation based on data summary using OpenAI API or mock mode.
         
@@ -79,10 +79,13 @@ class NarrativeAgent:
                 - correlations: Correlation coefficients
                 - insights: List of insights from analysis
                 - data_summary: Data metadata
+            mode: Optional mode parameter (companion, status, science)
         
         Returns:
             Dictionary containing narrative text and explanation
         """
+        mirror_story = None
+
         if self.use_openai:
             # Use OpenAI API
             explanation = self._generate_openai_explanation(data_summary)
@@ -94,18 +97,29 @@ class NarrativeAgent:
             statistics = data_summary.get("statistics", {})
             insights = data_summary.get("insights", [])
             
-            explanation = self._generate_gpt5_explanation(
-                hrv_by_stress=hrv_by_stress,
-                correlations=correlations,
-                statistics=statistics,
-                insights=insights
-            )
-            
-            narrative = self._generate_narrative(
-                hrv_by_stress=hrv_by_stress,
-                correlations=correlations,
-                statistics=statistics
-            )
+            if mode == "mirror":
+                mirror_story = self._generate_mirror_story(
+                    data_summary=data_summary,
+                    statistics=statistics,
+                    correlations=correlations,
+                    insights=insights
+                )
+                explanation = mirror_story.get("summary", "")
+                narrative = mirror_story.get("energy_pattern", explanation)
+            else:
+                explanation = self._generate_gpt5_explanation(
+                    hrv_by_stress=hrv_by_stress,
+                    correlations=correlations,
+                    statistics=statistics,
+                    insights=insights,
+                    mode=mode
+                )
+                
+                narrative = self._generate_narrative(
+                    hrv_by_stress=hrv_by_stress,
+                    correlations=correlations,
+                    statistics=statistics
+                )
         
         return {
             "agent": self.name,
@@ -119,6 +133,7 @@ class NarrativeAgent:
                 },
                 "key_insights": data_summary.get("insights", [])[:5] if data_summary.get("insights") else [],
                 "timestamp": datetime.now().isoformat(),
+                **({"mirror_story": mirror_story} if mirror_story else {}),
             },
             "success": True,
         }
@@ -217,14 +232,85 @@ class NarrativeAgent:
         hrv_by_stress: Dict[str, Any],
         correlations: Dict[str, float],
         statistics: Dict[str, Any],
-        insights: list
+        insights: list,
+        mode: Optional[str] = None
     ) -> str:
         """
-        Generate GPT-5-style explanation based on data patterns.
+        Generate GPT-5-style explanation based on data patterns and mode.
         
         Simulates GPT-5's ability to identify patterns and generate
         scientific explanations without using API keys.
+        
+        Args:
+            mode: Optional mode parameter (companion, status, science)
         """
+        # Mode-specific tone adjustment
+        if mode == "companion":
+            # Warm, supportive tone for companion mode
+            if hrv_by_stress and correlations:
+                hrv_stress_corr = correlations.get("hrv_vs_stress", 0)
+                if hrv_stress_corr < -0.3:
+                    explanation = (
+                        "我注意到你的心率变异性（HRV）与压力水平之间存在一定的关联。"
+                        "当压力较高时，HRV 往往会降低，这反映了自主神经系统的平衡状态。"
+                        "这并不意味着有什么问题，而是提醒我们关注自己的压力管理。"
+                        "记住，你的身体正在努力适应，给自己一些时间和空间来恢复是很重要的。"
+                        "如果你感到压力过大，不妨尝试一些放松技巧，比如深呼吸或轻度运动。"
+                    )
+                else:
+                    explanation = (
+                        "从你的数据来看，你的生理指标整体保持在一个相对稳定的范围内。"
+                        "这是很好的迹象，说明你的身体有良好的适应能力。"
+                        "继续保持这种平衡很重要，同时也要记得关注自己的感受。"
+                        "如果你有任何担忧或想要讨论的话题，我随时在这里倾听。"
+                    )
+            else:
+                explanation = (
+                    "我很高兴你愿意分享和探索自己的状态。"
+                    "每个人的身体和心理都是独特的，重要的是找到适合自己的节奏。"
+                    "如果你感到困惑或需要支持，请随时告诉我，我会尽力帮助你。"
+                    "记住，寻求帮助和理解自己都是成长的一部分。"
+                )
+            return explanation
+            
+        elif mode == "science":
+            # Professional, scientific tone for science mode
+            if hrv_by_stress and correlations:
+                hrv_stress_corr = correlations.get("hrv_vs_stress", 0)
+                if hrv_stress_corr < -0.5:
+                    explanation = (
+                        "Heart rate variability (HRV) demonstrates a significant inverse correlation "
+                        "with stress levels (r = {:.3f}), indicating autonomic nervous system (ANS) "
+                        "dysregulation. This relationship reflects the physiological mechanism where "
+                        "elevated stress activates the sympathetic nervous system (SNS), thereby "
+                        "suppressing parasympathetic nervous system (PNS) activity. HRV serves as a "
+                        "non-invasive biomarker of ANS function, with lower HRV values correlating "
+                        "with reduced vagal tone and compromised cardiovascular resilience. "
+                        "Research indicates that chronic stress-induced HRV reduction may be associated "
+                        "with increased risk of cardiovascular events and reduced recovery capacity."
+                    ).format(hrv_stress_corr)
+                else:
+                    explanation = (
+                        "The relationship between heart rate variability and stress levels in this dataset "
+                        "shows a correlation coefficient of {:.3f}. HRV is quantified through time-domain "
+                        "and frequency-domain analyses, with common metrics including RMSSD (root mean square "
+                        "of successive differences) and SDNN (standard deviation of NN intervals). "
+                        "The autonomic nervous system regulates HRV through the interplay between "
+                        "sympathetic and parasympathetic branches, with higher HRV generally indicating "
+                        "greater physiological flexibility and adaptive capacity."
+                    ).format(hrv_stress_corr)
+            else:
+                explanation = (
+                    "Heart rate variability (HRV) is a measure of the variation in time between successive "
+                    "heartbeats, controlled by the autonomic nervous system. HRV analysis provides insights "
+                    "into cardiovascular health, stress response, and recovery capacity. Key HRV metrics "
+                    "include time-domain parameters (RMSSD, SDNN, pNN50) and frequency-domain parameters "
+                    "(LF, HF power). Higher HRV typically indicates better cardiovascular health and "
+                    "autonomic balance, while lower HRV may suggest increased stress or reduced recovery capacity."
+                )
+            return explanation
+        
+        # Default behavior (status mode or no mode specified)
         # Analyze HRV vs Stress relationship
         if hrv_by_stress and correlations:
             hrv_stress_corr = correlations.get("hrv_vs_stress", 0)
@@ -325,4 +411,47 @@ class NarrativeAgent:
         )
         
         return " ".join(narrative_parts)
+
+    def _generate_mirror_story(
+        self,
+        data_summary: Dict[str, Any],
+        statistics: Dict[str, Any],
+        correlations: Dict[str, Any],
+        insights: list
+    ) -> Dict[str, str]:
+        trend = data_summary.get("mirror_trend", [])
+        coordination_score = data_summary.get("coordination_score", 78)
+        summary = data_summary.get("insight_summary") or (
+            "你正在保持专注，但恢复速度略低于平均。"
+        )
+        energy_pattern = data_summary.get("energy_pattern")
+
+        if not energy_pattern and trend:
+            first = trend[0]
+            last = trend[-1]
+            if last["hrv"] < first["hrv"] and last["stress"] > first["stress"]:
+                energy_pattern = "过去三天里，HRV 在收敛，但专注轨迹依旧上扬。意志力在前行，身体正追赶它的节拍。"
+            elif last["hrv"] > first["hrv"]:
+                energy_pattern = "你的生理节奏正在变柔和、灵活。每一次呼吸都像涟漪，向外扩散着恢复力。"
+            else:
+                energy_pattern = "你的系统维持在一个可持续的区间，张力与恢复在对话，需要一点点温柔的空间。"
+
+        if not energy_pattern:
+            energy_pattern = "你的生理节奏与心理波动正在互相靠近，意义感让系统慢慢同步。"
+
+        hero_meta = data_summary.get("hero", {})
+        top_dialog = hero_meta.get("top_dialog") or "你好，旅人。我们在这里照见你体内的流动，倾听那尚未被诉说的节奏。"
+
+        if not summary and insights:
+            summary = insights[0]
+
+        coordination_phrase = f"当前协同指数为 {coordination_score}%，身体与心智正在寻找一条共同的轨迹。"
+
+        energy_pattern_full = f"{energy_pattern} {coordination_phrase}"
+
+        return {
+            "summary": summary,
+            "energy_pattern": energy_pattern_full,
+            "top_dialog": top_dialog,
+        }
 

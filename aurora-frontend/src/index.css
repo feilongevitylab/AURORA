@@ -11,3 +11,31 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Custom scrollbar styles - only show when needed */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.chat-textarea {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-textarea::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+

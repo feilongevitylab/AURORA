@@ -272,6 +272,50 @@ result = agent.run("analyze HRV by stress level")
   - `status`: 处理状态
 - `success`: 操作是否成功
 
+#### Mirror 模式附加字段
+
+当 `context.mode === "mirror"` 时，`result` 中还会包含：
+
+```json
+{
+  "coordination_score": 78,
+  "insight_summary": "你正在保持专注，但恢复速度略低于平均。",
+  "mirror_layers": {
+    "physiology": {
+      "title": "Physiology",
+      "description": "HRV · Sleep Quality · Heart Coherence",
+      "metrics": [
+        {"label": "HRV", "value": "52.4"},
+        {"label": "Sleep Quality", "value": "78.3"},
+        {"label": "Heart Coherence", "value": "71.5"}
+      ]
+    },
+    "mind": { "...": "..." },
+    "meaning": { "...": "..." }
+  },
+  "mirror_trend": [
+    {"date": "11-01", "hrv": 52.1, "stress": 38.5, "focus": 64.2},
+    {"date": "11-02", "hrv": 51.4, "stress": 39.9, "focus": 66.0}
+  ],
+  "energy_pattern": "过去 3 天你的心率变异性下降，但专注指数上升。你的身体在努力跟上你的意志力。",
+  "hero": {
+    "greeting": "早安，今天的心率节奏较平稳。想听听你的身体在说什么吗？",
+    "quick_prompts": ["我今天有点累。", "我还不错。", "查看今日镜。"],
+    "top_dialog": "早安，旅人。你的系统正以温柔的节奏醒来，让我们一起倾听身体和心的低语。",
+    "mirror_summary": "你的 Purpose 指标与恢复周期高度相关，说明意义感驱动了你的神经平衡。"
+  }
+}
+```
+
+字段说明：
+
+- `coordination_score`：身体-心理-意义的综合协同指数（0-100）。
+- `insight_summary`：Mirror 模式的一句话洞察。
+- `mirror_layers`：三层视图（Physiology / Mind / Meaning），每层包含主要指标与说明。
+- `mirror_trend`：近 7 日 HRV / Stress / Focus 趋势数据，供 VizAgent 生成折线图。
+- `energy_pattern`：AI 生成的 narrative 描述，用于 Energy Pattern 区域。
+- `hero`：Hero 区动态问候与 quick prompt 配置。
+
 **压力水平分类标准：**
 - `Low`: stress_score < 20
 - `Medium`: 20 ≤ stress_score ≤ 35
@@ -351,22 +395,13 @@ result = agent.run("visualize stress levels over time", data=data_dict)
 **字段说明：**
 - `agent`: Agent名称
 - `result`: 可视化结果
-  - `chart_type`: 图表类型 ("line", "bar", "scatter", "pie", "heatmap", "box")
-  - `plotly_config`: Plotly.js配置对象
-    - `data`: 数据系列数组
-    - `layout`: 布局配置
-    - `config`: 图表配置
+  - `chart_type`: 图表类型（Mirror 模式下为 `mirror_trend`，默认 `scatter`）
+  - `plotly_json`: Plotly `Figure.to_json()` 解析后的对象，包含 `data`、`layout`、`config`
   - `recommendations`: 推荐配置列表
   - `timestamp`: 生成时间戳
 - `success`: 操作是否成功
 
-**图表类型自动识别规则：**
-- `line`: 查询包含 "trend", "over time", "timeline"
-- `bar`: 查询包含 "compare", "category", "bar"
-- `scatter`: 查询包含 "correlation", "scatter", "relationship"
-- `box`: 查询包含 "distribution", "box", "whisker"
-- `heatmap`: 查询包含 "heatmap", "correlation matrix"
-- `pie`: 查询包含 "pie", "proportion", "percentage"
+Mirror 模式下，当 `data` 中带有 `mirror_trend` 时，VizAgent 会生成包含 HRV / Stress / Focus 三条折线的趋势图；否则回退到默认的 HRV vs Stress 散点图。
 
 ---
 
@@ -419,6 +454,15 @@ result = agent.run("explain the HRV analysis", data=data_dict, insights=insights
   - `timestamp`: 生成时间戳
 - `success`: 操作是否成功
 
+返回结果中的关键字段：
+- `explanation`: 主叙述文本
+- `narrative`: 详细 narrative（在使用 OpenAI 时与 explanation 相同）
+- `model`: 使用的模型（OpenAI or 模拟）
+- `data_analyzed`: 参与分析的记录数与指标列表
+- `key_insights`: 关键洞察列表（最多5条）
+- `mirror_story`: Mirror 模式专属输出，包含 `summary`、`energy_pattern`、`top_dialog` 等字段
+ - `timestamp`: 生成时间戳
+
 ---
 
 ### AuroraCoreAgent
@@ -467,6 +511,40 @@ result = agent.run("analyze and visualize my HRV data", query_type="combined")
   "success": true
 }
 ```
+
+**返回结构（Mirror 模式示例）：**
+```json
+{
+  "insight": "你正在保持专注，但恢复速度略低于平均。",
+  "hero": {
+    "greeting": "早安，今天的心率节奏较平稳。想听听你的身体在说什么吗？",
+    "quick_prompts": ["我今天有点累。", "我还不错。", "查看今日镜。"],
+    "top_dialog": "早安，旅人。你的系统正以温柔的节奏醒来，让我们一起倾听身体和心的低语。",
+    "mirror_summary": "你的 Purpose 指标与恢复周期高度相关，说明意义感驱动了你的神经平衡。"
+  },
+  "data": {
+    "coordination_score": 78,
+    "insight_summary": "你正在保持专注，但恢复速度略低于平均。",
+    "mirror_layers": { "physiology": { "title": "Physiology", "metrics": [...] }, "mind": {"...": "..."}, "meaning": {"...": "..."} },
+    "mirror_trend": [
+      {"date": "11-01", "hrv": 52.1, "stress": 38.5, "focus": 64.2},
+      {"date": "11-02", "hrv": 51.4, "stress": 39.9, "focus": 66.0}
+    ],
+    "energy_pattern": "过去 3 天你的心率变异性下降，但专注指数上升。你的身体在努力跟上你的意志力。"
+  },
+  "chart": {
+    "chart_type": "mirror_trend",
+    "plotly_json": { "data": [...], "layout": {...}, "config": {...} }
+  }
+}
+```
+
+**Mirror 模式字段说明补充：**
+- `hero`: Hero 输入区的动态文案配置。
+- `data.mirror_layers`: 三层视图结构，供前端展示 Physiology/Mind/Meaning 指标。
+- `data.mirror_trend`: HRV / Stress / Focus 趋势数据，供 VizAgent 渲染折线图。
+- `data.energy_pattern`: NarrativeAgent 生成的情绪化长文案。
+- `chart.chart_type`: Mirror 模式下为 `mirror_trend`。
 
 **字段说明：**
 - `agent`: Agent名称

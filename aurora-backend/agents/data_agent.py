@@ -3,7 +3,7 @@ Data Agent - Handles data retrieval, processing, and analysis using pandas.
 """
 
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import random
 import os
@@ -91,6 +91,7 @@ class DataAgent:
         hrv_by_stress = self._calculate_hrv_by_stress()
         hrv_by_age_group = self._calculate_hrv_by_age_group()
         correlations = self._calculate_correlations()
+        mode = (context or {}).get("mode")
         
         # Generate insights
         insights = self._generate_insights(statistics, hrv_by_stress, correlations)
@@ -110,6 +111,23 @@ class DataAgent:
             "insights": insights,
             "status": "processed",
         }
+
+        if mode == "mirror":
+            mirror_layers = self._generate_mirror_layers(statistics)
+            mirror_trend = self._generate_mirror_trend()
+            mirror_summary = self._generate_mirror_summary(statistics, correlations)
+            coordination_score = self._estimate_coordination_score(statistics, correlations)
+            energy_pattern = self._generate_energy_pattern(statistics, correlations, mirror_trend)
+            hero_meta = self._generate_mirror_hero(mirror_summary, coordination_score)
+
+            processed_data.update({
+                "coordination_score": coordination_score,
+                "insight_summary": mirror_summary,
+                "mirror_layers": mirror_layers,
+                "mirror_trend": mirror_trend,
+                "energy_pattern": energy_pattern,
+                "hero": hero_meta,
+            })
         
         return {
             "agent": self.name,
@@ -256,4 +274,119 @@ class DataAgent:
         insights.append(f"Analysis completed on {total_records} records")
         
         return insights
+
+    def _generate_mirror_layers(self, statistics: Dict[str, Any]) -> Dict[str, Any]:
+        avg_hrv = statistics["hrv"]["mean"]
+        stress_mean = statistics["stress_score"]["mean"]
+
+        sleep_quality = round(78 + random.uniform(-6, 6), 1)
+        heart_coherence = round(70 + (50 - abs(stress_mean - 30)) / 2 + random.uniform(-5, 5), 1)
+        stress_index = round(stress_mean * 2 + random.uniform(-5, 5), 1)
+        mood_balance = round(80 - (stress_mean - 25) * 1.2 + random.uniform(-5, 5), 1)
+        purpose = round(75 + random.uniform(-8, 8), 1)
+        fulfillment = round(72 + random.uniform(-7, 7), 1)
+
+        return {
+            "physiology": {
+                "title": "Physiology",
+                "description": "HRV · Sleep Quality · Heart Coherence",
+                "metrics": [
+                    {"label": "HRV", "value": f"{avg_hrv:.1f}"},
+                    {"label": "Sleep Quality", "value": f"{sleep_quality:.1f}"},
+                    {"label": "Heart Coherence", "value": f"{heart_coherence:.1f}"},
+                ],
+            },
+            "mind": {
+                "title": "Mind",
+                "description": "Stress Index · Mood Balance",
+                "metrics": [
+                    {"label": "Stress Index", "value": f"{stress_index:.1f}"},
+                    {"label": "Mood Balance", "value": f"{mood_balance:.1f}"},
+                ],
+            },
+            "meaning": {
+                "title": "Meaning",
+                "description": "Purpose · Fulfillment",
+                "metrics": [
+                    {"label": "Purpose", "value": f"{purpose:.1f}"},
+                    {"label": "Fulfillment", "value": f"{fulfillment:.1f}"},
+                ],
+            },
+        }
+
+    def _generate_mirror_trend(self) -> list:
+        base_date = datetime.now()
+        trend = []
+        baseline_hrv = 52 + random.uniform(-3, 3)
+        focus_level = 65 + random.uniform(-5, 5)
+
+        for offset in range(7):
+            day = base_date - timedelta(days=6 - offset)
+            hrv_value = baseline_hrv + random.uniform(-4, 4)
+            stress_value = 60 - hrv_value * 0.5 + random.uniform(-4, 4)
+            focus_value = focus_level + (offset - 3) * 1.2 + random.uniform(-3, 3)
+
+            trend.append({
+                "date": day.strftime("%m-%d"),
+                "hrv": round(hrv_value, 1),
+                "stress": round(max(20, min(95, stress_value)), 1),
+                "focus": round(max(20, min(95, focus_value)), 1),
+            })
+
+        return trend
+
+    def _estimate_coordination_score(self, statistics: Dict[str, Any], correlations: Dict[str, float]) -> int:
+        hrv_mean = statistics["hrv"]["mean"]
+        stress_mean = statistics["stress_score"]["mean"]
+        correlation = correlations.get("hrv_vs_stress", 0)
+
+        base = 75 + (hrv_mean - 50) * 0.4
+        stress_adjustment = -(stress_mean - 25) * 0.3
+        corr_adjustment = correlation * -20
+        score = round(max(40, min(95, base + stress_adjustment + corr_adjustment)))
+        return score
+
+    def _generate_mirror_summary(self, statistics: Dict[str, Any], correlations: Dict[str, float]) -> str:
+        correlation = correlations.get("hrv_vs_stress", 0)
+        avg_hrv = statistics["hrv"]["mean"]
+
+        if correlation < -0.4:
+            return "Your sense of purpose moves in step with your recovery cycle, suggesting meaning is driving your nervous balance."
+        if avg_hrv > 55:
+            return "Your autonomic rhythm remains adaptable and your focus is aligning with recovery power."
+        return "You are staying focused, though recovery velocity is slightly below average."
+
+    def _generate_energy_pattern(self, statistics: Dict[str, Any], correlations: Dict[str, float], trend: list) -> str:
+        hrv_trend = [point["hrv"] for point in trend]
+        stress_trend = [point["stress"] for point in trend]
+
+        if hrv_trend[-1] < hrv_trend[0] and stress_trend[-1] > stress_trend[0]:
+            return "Over the past three days your HRV has dipped while focus climbed - your body is working to keep pace with your willpower."
+        if hrv_trend[-1] > hrv_trend[0]:
+            return "Your physiological rhythm is becoming more stable, with deeper breath and expansion in your resting state. Keep honoring this cadence."
+        return "Your physiological and psychological tempos are searching for a new balance - leave room for integration and recovery."
+
+    def _generate_mirror_hero(self, summary: str, coordination_score: int) -> Dict[str, Any]:
+        now = datetime.now()
+        hour = now.hour
+
+        if hour < 12:
+            greeting_prefix = "Good morning"
+        elif hour < 18:
+            greeting_prefix = "Good afternoon"
+        else:
+            greeting_prefix = "Good evening"
+
+        greeting = f"{greeting_prefix}, your rhythm is quietly aligning. Coordination score {coordination_score}% - ready to explore today's mirror?"
+
+        return {
+            "greeting": greeting,
+            "quick_prompts": [
+                "I'm feeling a little tired today.",
+                "I'm doing alright today.",
+                "Show me today's mirror.",
+            ],
+            "top_dialog": f"{greeting_prefix}, traveler. Your system is waking with a gentle cadence - let's listen to the whispers of body and mind.",
+            "mirror_summary": summary,
+        }
 

@@ -71,7 +71,7 @@ class AuroraCoreAgent:
     
     def run(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Orchestrate agent execution based on query keywords.
+        Orchestrate agent execution based on query keywords and mode context.
         
         Logic:
         1. If query includes "analyze" → call DataAgent
@@ -79,52 +79,38 @@ class AuroraCoreAgent:
         3. If query includes "explain" → call NarrativeAgent
         4. Otherwise → run all and return combined results
         
+        Mode-based behavior:
+        - companion mode: Prioritize NarrativeAgent with warm tone
+        - mirror mode: Combine DataAgent + VizAgent + NarrativeAgent with layered insights
+        - science mode: Prioritize NarrativeAgent with professional tone
+        
         Args:
             query: User's natural language query
-            context: Optional context data
+            context: Optional context data (may contain mode information)
         
         Returns:
             Structured JSON with keys: data, chart, insight
         """
         query_lower = query.lower()
+        mode = context.get("mode") if context else None
         
         # Initialize result structure
         result = {}
         
-        # 1. If query includes "analyze" → call DataAgent
-        if "analyze" in query_lower:
-            data_result = self.data_agent.run(query, context)
-            self._log_agent_execution(self.data_agent.name, data_result)
-            result["data"] = data_result.get("result", {})
-        
-        # 2. If query includes "visualize" → call VizAgent
-        if "visualize" in query_lower:
-            # Need data for visualization, so run DataAgent first if not already done
+        # Mode-based routing
+        if mode == "companion":
+            # Companion mode: Prioritize narrative/insight
             if "data" not in result:
                 data_result = self.data_agent.run(query, context)
                 self._log_agent_execution(self.data_agent.name, data_result)
                 result["data"] = data_result.get("result", {})
             
-            viz_result = self.viz_agent.run(query, result.get("data"))
-            self._log_agent_execution(self.viz_agent.name, viz_result)
-            result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
-        
-        # 3. If query includes "explain" → call NarrativeAgent
-        if "explain" in query_lower:
-            # Need data for explanation, so run DataAgent first if not already done
-            if "data" not in result:
-                data_result = self.data_agent.run(query, context)
-                self._log_agent_execution(self.data_agent.name, data_result)
-                result["data"] = data_result.get("result", {})
-            
-            narrative_result = self.narrative_agent.run(result["data"])
+            narrative_result = self.narrative_agent.run(result["data"], mode=mode)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
-            # Extract explanation text
             result["insight"] = narrative_result.get("result", {}).get("explanation", "")
-        
-        # 4. Otherwise → run all and return combined results
-        if not any(keyword in query_lower for keyword in ["analyze", "visualize", "explain"]):
-            # Run all agents
+            
+        elif mode == "mirror":
+            # Mirror mode: Combine layered data, visualization, and narrative
             data_result = self.data_agent.run(query, context)
             self._log_agent_execution(self.data_agent.name, data_result)
             result["data"] = data_result.get("result", {})
@@ -133,9 +119,84 @@ class AuroraCoreAgent:
             self._log_agent_execution(self.viz_agent.name, viz_result)
             result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
             
-            narrative_result = self.narrative_agent.run(result["data"])
+            # Also include narrative for context
+            narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+            self._log_agent_execution(self.narrative_agent.name, narrative_result)
+            narrative_payload = narrative_result.get("result", {})
+            result["insight"] = narrative_payload.get("explanation", "")
+
+            mirror_story = narrative_payload.get("mirror_story") or {}
+            if result.get("data") is not None:
+                hero_meta = result["data"].get("hero", {})
+                hero_meta.setdefault("top_dialog", mirror_story.get("top_dialog"))
+                hero_meta.setdefault("mirror_summary", mirror_story.get("summary"))
+                result["data"]["hero"] = hero_meta
+                if "energy_pattern" not in result["data"] and mirror_story.get("energy_pattern"):
+                    result["data"]["energy_pattern"] = mirror_story["energy_pattern"]
+
+            if result["data"].get("hero"):
+                result["hero"] = result["data"]["hero"]
+            if mirror_story.get("summary"):
+                result["insight"] = mirror_story["summary"]
+            
+        elif mode == "science":
+            # Science mode: Prioritize narrative with professional tone
+            if "data" not in result:
+                data_result = self.data_agent.run(query, context)
+                self._log_agent_execution(self.data_agent.name, data_result)
+                result["data"] = data_result.get("result", {})
+            
+            narrative_result = self.narrative_agent.run(result["data"], mode=mode)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
             result["insight"] = narrative_result.get("result", {}).get("explanation", "")
+            
+        else:
+            # Default behavior: keyword-based routing
+            # 1. If query includes "analyze" → call DataAgent
+            if "analyze" in query_lower:
+                data_result = self.data_agent.run(query, context)
+                self._log_agent_execution(self.data_agent.name, data_result)
+                result["data"] = data_result.get("result", {})
+            
+            # 2. If query includes "visualize" → call VizAgent
+            if "visualize" in query_lower:
+                # Need data for visualization, so run DataAgent first if not already done
+                if "data" not in result:
+                    data_result = self.data_agent.run(query, context)
+                    self._log_agent_execution(self.data_agent.name, data_result)
+                    result["data"] = data_result.get("result", {})
+                
+                viz_result = self.viz_agent.run(query, result.get("data"))
+                self._log_agent_execution(self.viz_agent.name, viz_result)
+                result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+            
+            # 3. If query includes "explain" → call NarrativeAgent
+            if "explain" in query_lower:
+                # Need data for explanation, so run DataAgent first if not already done
+                if "data" not in result:
+                    data_result = self.data_agent.run(query, context)
+                    self._log_agent_execution(self.data_agent.name, data_result)
+                    result["data"] = data_result.get("result", {})
+                
+                narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+                self._log_agent_execution(self.narrative_agent.name, narrative_result)
+                # Extract explanation text
+                result["insight"] = narrative_result.get("result", {}).get("explanation", "")
+            
+            # 4. Otherwise → run all and return combined results
+            if not any(keyword in query_lower for keyword in ["analyze", "visualize", "explain"]):
+                # Run all agents
+                data_result = self.data_agent.run(query, context)
+                self._log_agent_execution(self.data_agent.name, data_result)
+                result["data"] = data_result.get("result", {})
+                
+                viz_result = self.viz_agent.run(query, result["data"])
+                self._log_agent_execution(self.viz_agent.name, viz_result)
+                result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+                
+                narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+                self._log_agent_execution(self.narrative_agent.name, narrative_result)
+                result["insight"] = narrative_result.get("result", {}).get("explanation", "")
         
         return result
     

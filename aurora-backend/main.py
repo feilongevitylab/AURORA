@@ -25,7 +25,11 @@ app = FastAPI(
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # React dev servers
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:3002",
+    ],  # React dev servers
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,6 +52,7 @@ async def health_check():
 class InsightRequest(BaseModel):
     """Request model for insight endpoint"""
     query: str
+    mode: Optional[str] = None  # companion, status, science
 
 
 class HRVDataPoint(BaseModel):
@@ -163,10 +168,10 @@ async def get_stress_data(days: int = 7):
 @app.post("/api/insight")
 async def get_insight(request: InsightRequest):
     """
-    Get AI-generated insight, data analysis, and visualization based on query.
+    Get AI-generated insight, data analysis, and visualization based on query and mode.
     
     Args:
-        request: InsightRequest containing query string
+        request: InsightRequest containing query string and optional mode
     
     Returns:
         Combined JSON with keys: data, chart, insight
@@ -175,8 +180,19 @@ async def get_insight(request: InsightRequest):
         # Initialize core agent
         core_agent = AuroraCoreAgent()
         
-        # Process query through core agent
-        result = core_agent.run(request.query)
+        # Prepare context based on mode
+        context = None
+        if request.mode:
+            context = {
+                "mode": request.mode,
+                "tone": "warm" if request.mode == "companion" else "professional" if request.mode == "science" else "analytical",
+                "supportive": request.mode == "companion",
+                "include_topology": request.mode == "status",
+                "include_references": request.mode == "science"
+            }
+        
+        # Process query through core agent with mode context
+        result = core_agent.run(request.query, context)
         
         # Return the combined JSON (data, chart, insight)
         return result
