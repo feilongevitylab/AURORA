@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useMode } from '../../contexts/ModeContext'
+import { useAuth } from '../../contexts/AuthContext'
 import axios from 'axios'
 
 const API_BASE_URL = 'http://localhost:8000'
 
-function ChatbotInput({ onResponse, onError, compact = false, placeholder, quickPrompts = [] }) {
+function ChatbotInput({ onResponse, onError, onLoading, compact = false, placeholder, quickPrompts = [] }) {
   const { currentMode } = useMode()
+  const { isRegistered, userProfile } = useAuth()
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -25,11 +27,16 @@ function ChatbotInput({ onResponse, onError, compact = false, placeholder, quick
     }
     try {
       setLoading(true)
+      if (onLoading) {
+        onLoading(true)
+      }
       setError(null)
       
       const response = await axios.post(`${API_BASE_URL}/api/insight`, {
         query: trimmed,
-        mode: currentMode
+        mode: currentMode,
+        user_id: userProfile?.id || null,
+        is_registered: isRegistered,
       })
       
       if (onResponse) {
@@ -47,6 +54,9 @@ function ChatbotInput({ onResponse, onError, compact = false, placeholder, quick
       }
     } finally {
       setLoading(false)
+      if (onLoading) {
+        onLoading(false)
+      }
     }
   }
 

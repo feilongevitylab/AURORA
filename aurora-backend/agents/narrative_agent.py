@@ -30,33 +30,49 @@ class NarrativeAgent:
         self.name = "NarrativeAgent"
         self.api_key = os.getenv("OPENAI_API_KEY")
         self.use_openai = OPENAI_AVAILABLE and self.api_key is not None
+        self.openai_clients: Dict[str, Any] = {}
         
         if self.use_openai:
-            # Try to use the latest available OpenAI model
-            # Note: GPT-5 doesn't exist yet, using GPT-4 Turbo or GPT-4o as the best available option
             try:
-                # Try GPT-4o first (if available), then fall back to GPT-4 Turbo
+                self.openai_clients["premium"] = ChatOpenAI(
+                    model="gpt-4o",
+                    temperature=0.7,
+                    api_key=self.api_key
+                )
+                print("[NarrativeAgent] Using OpenAI API with model: gpt-4o for premium responses")
+            except Exception as primary_error:
+                print(f"[NarrativeAgent] Unable to initialize gpt-4o: {primary_error}. Trying gpt-4-turbo-preview.")
                 try:
-                    self.llm = ChatOpenAI(
-                        model="gpt-4o",
-                        temperature=0.7,
-                        api_key=self.api_key
-                    )
-                    self.model_name = "GPT-4o (OpenAI)"
-                except:
-                    # Fall back to GPT-4 Turbo if GPT-4o is not available
-                    self.llm = ChatOpenAI(
+                    self.openai_clients["premium"] = ChatOpenAI(
                         model="gpt-4-turbo-preview",
                         temperature=0.7,
                         api_key=self.api_key
                     )
-                    self.model_name = "GPT-4 Turbo (OpenAI)"
-                
-                print(f"[NarrativeAgent] Using OpenAI API with model: {self.llm.model_name}")
-            except Exception as e:
-                print(f"[NarrativeAgent] Error initializing OpenAI: {e}. Falling back to mock mode.")
+                    print("[NarrativeAgent] Using OpenAI API with model: gpt-4-turbo-preview for premium responses")
+                except Exception as fallback_error:
+                    print(f"[NarrativeAgent] Error initializing OpenAI premium model: {fallback_error}. Falling back to mock mode.")
+                    self.use_openai = False
+            
+            if self.use_openai:
+                try:
+                    self.openai_clients["lite"] = ChatOpenAI(
+                        model="gpt-4o-mini",
+                        temperature=0.6,
+                        api_key=self.api_key
+                    )
+                    print("[NarrativeAgent] Using OpenAI API with model: gpt-4o-mini for lite responses")
+                except Exception as lite_error:
+                    print(f"[NarrativeAgent] Unable to initialize gpt-4o-mini: {lite_error}. Falling back to premium model for lite tier.")
+                    self.openai_clients["lite"] = self.openai_clients.get("premium")
+            
+            self.llm = self.openai_clients.get("premium")
+            if not self.llm:
                 self.use_openai = False
-                self.model_name = "GPT-5 (simulated - fallback)"
+        else:
+            self.llm = None
+        
+        if self.use_openai and self.llm:
+            self.model_name = getattr(self.llm, "model_name", "OpenAI Chat")
         else:
             self.llm = None
             if not OPENAI_AVAILABLE:
@@ -65,10 +81,11 @@ class NarrativeAgent:
                 self.model_name = "GPT-5 (simulated - no API key)"
             else:
                 self.model_name = "GPT-5 (simulated)"
+            self.use_openai = False
         
         print(f"[NarrativeAgent] Initialized in {'OpenAI' if self.use_openai else 'Mock'} mode")
     
-    def run(self, data_summary: Dict[str, Any], mode: Optional[str] = None) -> Dict[str, Any]:
+    def run(self, data_summary: Dict[str, Any], mode: Optional[str] = None, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Generate narrative explanation based on data summary using OpenAI API or mock mode.
         
@@ -85,10 +102,12 @@ class NarrativeAgent:
             Dictionary containing narrative text and explanation
         """
         mirror_story = None
+        context = context or {}
+        model_tier = "premium" if context.get("is_registered") else "lite"
 
         if self.use_openai:
             # Use OpenAI API
-            explanation = self._generate_openai_explanation(data_summary)
+            explanation = self._generate_openai_explanation(data_summary, mode, model_tier, context)
             narrative = explanation  # Use the same explanation as narrative for OpenAI
         else:
             # Fall back to mock mode
@@ -127,6 +146,7 @@ class NarrativeAgent:
                 "explanation": explanation,
                 "narrative": narrative,
                 "model": self.model_name,
+                "model_tier": model_tier if self.use_openai else "mock",
                 "data_analyzed": {
                     "total_records": data_summary.get("data_summary", {}).get("total_records", 0),
                     "metrics_analyzed": list(data_summary.get("statistics", {}).keys()),
@@ -138,7 +158,13 @@ class NarrativeAgent:
             "success": True,
         }
     
-    def _generate_openai_explanation(self, data_summary: Dict[str, Any]) -> str:
+    def _generate_openai_explanation(
+        self,
+        data_summary: Dict[str, Any],
+        mode: Optional[str],
+        model_tier: str,
+        context: Dict[str, Any]
+    ) -> str:
         """
         Generate explanation using OpenAI API.
         
@@ -149,7 +175,12 @@ class NarrativeAgent:
             AI-generated explanation string
         """
         try:
-            # Format the data summary for the prompt
+            llm_client = self.openai_clients.get("premium" if model_tier == "premium" else "lite") or self.llm
+            if llm_client is None:
+                raise RuntimeError("OpenAI client is not initialized")
+
+            self.model_name = getattr(llm_client, "model_name", getattr(llm_client, "model", "OpenAI Chat"))
+
             data_str = self._format_data_summary(data_summary)
             
             # Create the prompt as specified
@@ -162,7 +193,7 @@ class NarrativeAgent:
             )
             
             # Call OpenAI API
-            response = self.llm.invoke([system_message, human_message])
+            response = llm_client.invoke([system_message, human_message])
             explanation = response.content
             
             return explanation.strip()

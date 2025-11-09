@@ -1,7 +1,10 @@
 import { useMode } from '../../contexts/ModeContext'
+import { useAuth } from '../../contexts/AuthContext'
+import SignUpLink from '../common/SignUpLink'
 
 function ScienceModeContent({ data }) {
   const { modeConfig } = useMode()
+  const { isRegistered } = useAuth()
 
   if (!data) {
     return (
@@ -15,6 +18,14 @@ function ScienceModeContent({ data }) {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {!isRegistered && (
+        <div className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50/90 p-6 text-left shadow-sm shadow-cyan-200/60">
+          <p className="text-sm leading-relaxed text-cyan-900/90">
+            I can unpack the science for you right away. To tailor future analyses to your physiology and interests, please{' '}
+            <SignUpLink>Sign Up</SignUpLink>. Becoming a member helps Aurora connect the data dots uniquely for you.
+          </p>
+        </div>
+      )}
       {data.insight && (
         <div className="bg-gradient-to-br from-cyan-50 to-teal-50 rounded-2xl p-8 shadow-lg border border-cyan-200">
           <div className="flex items-start gap-4">

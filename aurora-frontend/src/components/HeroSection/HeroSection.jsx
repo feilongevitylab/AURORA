@@ -1,4 +1,5 @@
 import { useMode, MODES } from '../../contexts/ModeContext'
+import { useAuth } from '../../contexts/AuthContext'
 import DynamicBackground from '../Background/DynamicBackground'
 import ModeSwitch from './ModeSwitch'
 import ChatbotInput from './ChatbotInput'
@@ -8,20 +9,21 @@ import { useEffect, useMemo, useState } from 'react'
 const DEFAULT_PROMPTS = {
   [MODES.COMPANION]: {
     placeholder: 'In Companion Mode, tell me what is on your heart today.',
-    quickPrompts: [],
+    quickPrompts: ['Ground me gently', 'I feel lonely today', 'Help me process today'],
   },
   [MODES.MIRROR]: {
     placeholder: 'Good day - your rhythm feels steady. What would you like to reflect on?',
-    quickPrompts: ["I'm feeling a little tired.", "I'm doing alright.", "Show me today's mirror."],
+    quickPrompts: ["How was the sleep last night?", "Feeling steady", "Show today's reflection"],
   },
   [MODES.SCIENCE]: {
     placeholder: 'In Science Exploration Mode, ask me about physiology or psychology.',
-    quickPrompts: [],
+    quickPrompts: ['HRV vs stress?', 'Sleep recovery tips?', 'Cortisol and focus?'],
   },
 }
 
 function HeroSection({ onResponse, onLoading, onError, hasSubmitted, responseData }) {
   const { modeConfig, currentMode } = useMode()
+  const { isRegistered } = useAuth()
   const [placeholder, setPlaceholder] = useState(DEFAULT_PROMPTS[currentMode].placeholder)
   const [quickPrompts, setQuickPrompts] = useState(DEFAULT_PROMPTS[currentMode].quickPrompts)
 
@@ -36,6 +38,11 @@ function HeroSection({ onResponse, onLoading, onError, hasSubmitted, responseDat
     const defaults = DEFAULT_PROMPTS[currentMode] || DEFAULT_PROMPTS[MODES.COMPANION]
 
     if (currentMode === MODES.MIRROR) {
+      if (!isRegistered) {
+        setPlaceholder("Let's explore your body's rhythms together.")
+        setQuickPrompts(DEFAULT_PROMPTS[MODES.MIRROR].quickPrompts)
+        return
+      }
       const dynamicGreeting =
         responseData?.hero?.greeting ||
         `${timeGreeting}, your rhythm feels steady today. Ready to listen to what your body is saying?`
@@ -50,7 +57,7 @@ function HeroSection({ onResponse, onLoading, onError, hasSubmitted, responseDat
       setPlaceholder(defaults.placeholder)
       setQuickPrompts(defaults.quickPrompts)
     }
-  }, [currentMode, responseData, timeGreeting])
+  }, [currentMode, responseData, timeGreeting, isRegistered])
 
   return (
     <div 
@@ -93,8 +100,9 @@ function HeroSection({ onResponse, onLoading, onError, hasSubmitted, responseDat
         <div className={hasSubmitted ? 'mt-6' : 'mt-12'}>
           <div className={hasSubmitted ? 'max-w-2xl mx-auto' : ''}>
             <ChatbotInput 
-              onResponse={onResponse} 
-              onError={onError}
+              onResponse={onResponse ? (payload) => onResponse(currentMode, payload) : undefined}
+              onError={onError ? (message) => onError(currentMode, message) : undefined}
+              onLoading={onLoading ? (isLoading) => onLoading(currentMode, isLoading) : undefined}
               compact={hasSubmitted}
               placeholder={placeholder}
               quickPrompts={quickPrompts}

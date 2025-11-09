@@ -92,7 +92,8 @@ class AuroraCoreAgent:
             Structured JSON with keys: data, chart, insight
         """
         query_lower = query.lower()
-        mode = context.get("mode") if context else None
+        context = context or {}
+        mode = context.get("mode")
         
         # Initialize result structure
         result = {}
@@ -105,7 +106,7 @@ class AuroraCoreAgent:
                 self._log_agent_execution(self.data_agent.name, data_result)
                 result["data"] = data_result.get("result", {})
             
-            narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+            narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
             result["insight"] = narrative_result.get("result", {}).get("explanation", "")
             
@@ -120,7 +121,7 @@ class AuroraCoreAgent:
             result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
             
             # Also include narrative for context
-            narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+            narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
             narrative_payload = narrative_result.get("result", {})
             result["insight"] = narrative_payload.get("explanation", "")
@@ -146,7 +147,7 @@ class AuroraCoreAgent:
                 self._log_agent_execution(self.data_agent.name, data_result)
                 result["data"] = data_result.get("result", {})
             
-            narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+            narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
             result["insight"] = narrative_result.get("result", {}).get("explanation", "")
             
@@ -178,7 +179,7 @@ class AuroraCoreAgent:
                     self._log_agent_execution(self.data_agent.name, data_result)
                     result["data"] = data_result.get("result", {})
                 
-                narrative_result = self.narrative_agent.run(result["data"], mode=mode)
+                narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
                 self._log_agent_execution(self.narrative_agent.name, narrative_result)
                 # Extract explanation text
                 result["insight"] = narrative_result.get("result", {}).get("explanation", "")

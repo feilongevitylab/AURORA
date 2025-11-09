@@ -1,7 +1,10 @@
 import { useMode } from '../../contexts/ModeContext'
+import { useAuth } from '../../contexts/AuthContext'
+import SignUpLink from '../common/SignUpLink'
 
 function CompanionModeContent({ data }) {
   const { modeConfig } = useMode()
+  const { isRegistered } = useAuth()
 
   if (!data) {
     return (
@@ -15,6 +18,14 @@ function CompanionModeContent({ data }) {
 
   return (
     <div className="max-w-4xl mx-auto">
+      {!isRegistered && (
+        <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/90 p-6 text-left shadow-sm shadow-orange-200/60">
+          <p className="text-sm leading-relaxed text-orange-900/90">
+            I can respond right away, yet to let me remember your rhythms and offer more personalized reflections, please{' '}
+            <SignUpLink>Sign Up</SignUpLink>. Joining helps Aurora learn what soothes and strengthens you.
+          </p>
+        </div>
+      )}
       {data.insight && (
         <div className="bg-gradient-to-br from-orange-50 to-pink-50 rounded-2xl p-8 shadow-lg border border-orange-200">
           <div className="flex items-start gap-4">

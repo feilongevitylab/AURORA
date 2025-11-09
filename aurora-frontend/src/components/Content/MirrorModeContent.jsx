@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { useMode } from '../../contexts/ModeContext'
+import { useAuth } from '../../contexts/AuthContext'
 import Plot from 'react-plotly.js'
+import SignUpLink from '../common/SignUpLink'
 
 const FALLBACK_LAYERS = {
   physiology: {
@@ -52,6 +54,28 @@ function MirrorLayerCard({ layerKey, layer }) {
 
 function MirrorModeContent({ data }) {
   const { modeConfig } = useMode()
+  const { isRegistered } = useAuth()
+
+  if (!isRegistered) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 py-16 text-center">
+        <section className="rounded-3xl border border-indigo-300/40 bg-gradient-to-br from-indigo-700 via-indigo-600 to-indigo-500 p-10 text-white shadow-2xl shadow-indigo-900/40 backdrop-blur">
+          <p className="text-sm uppercase tracking-[0.4em] text-indigo-100/80">{modeConfig.nameEn}</p>
+          <h2 className="mt-4 text-3xl font-semibold leading-relaxed">
+            Traveler, I feel your presence. Let me learn who you are so I can reflect your mirror with fidelity.
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-indigo-100/90">
+            Share your name and rhythms—please{' '}
+            <SignUpLink variant="light">Sign Up</SignUpLink>
+            . With your story remembered, I can weave physiology, mind, and meaning into the mirror meant for you.
+          </p>
+        </section>
+        <p className="text-sm text-indigo-600/80">
+          I will still answer gentle questions, yet personalized Mirror insights bloom once Aurora recognizes you.
+        </p>
+      </div>
+    )
+  }
 
   const mirrorData = useMemo(() => data || {}, [data])
   const mirrorPayload = mirrorData?.data || {}

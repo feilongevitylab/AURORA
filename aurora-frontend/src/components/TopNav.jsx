@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
+import { useAuth } from '../contexts/AuthContext'
 
 const socialIcons = [
   {
@@ -30,28 +32,161 @@ const socialIcons = [
   },
 ]
 
+const genderOptions = [
+  { value: 'female', label: 'Female' },
+  { value: 'male', label: 'Male' },
+  { value: 'unspecified', label: 'Prefer not to say' },
+]
+
+const topicOptions = [
+  { value: 'sleep', label: 'Sleep' },
+  { value: 'anxiety', label: 'Anxiety' },
+  { value: 'depression', label: 'Depression' },
+  { value: 'stress', label: 'Stress' },
+  { value: 'hormonal_changes', label: 'Hormonal shifts' },
+  { value: 'other', label: 'Other' },
+]
+
+const wearableOptions = [
+  { value: 'none', label: 'Not now' },
+  { value: 'smartwatch', label: 'Smart watch' },
+  { value: 'ouraring', label: 'Oura Ring' },
+]
+
+const API_BASE_URL = 'http://localhost:8000'
+
+const initialSignUpForm = {
+  email: '',
+  password: '',
+  nickname: '',
+  gender: 'unspecified',
+  topics: [],
+  otherTopic: '',
+  wearablePreference: 'none',
+}
+
 function TopNav() {
-  const [isSignedIn, setIsSignedIn] = useState(false)
-  const [showModal, setShowModal] = useState(false)
-  const [credentials, setCredentials] = useState({
-    email: '',
-    password: '',
-  })
+  const {
+    isRegistered,
+    userProfile,
+    isAuthModalOpen,
+    authModalMode,
+    openAuthModal,
+    closeAuthModal,
+    markRegistered,
+    setAuthModalMode,
+  } = useAuth()
 
-  const handleFieldChange = (event) => {
+  const [signInForm, setSignInForm] = useState({ email: '', password: '' })
+  const [signUpForm, setSignUpForm] = useState(initialSignUpForm)
+  const [formError, setFormError] = useState(null)
+  const [formLoading, setFormLoading] = useState(false)
+
+  const avatarInitial = useMemo(() => {
+    if (!userProfile) return 'U'
+    if (userProfile.nickname && userProfile.nickname.length > 0) {
+      return userProfile.nickname[0].toUpperCase()
+    }
+    if (userProfile.email && userProfile.email.length > 0) {
+      return userProfile.email[0].toUpperCase()
+    }
+    return 'U'
+  }, [userProfile])
+
+  useEffect(() => {
+    if (!isAuthModalOpen) {
+      setSignInForm({ email: '', password: '' })
+      setSignUpForm(initialSignUpForm)
+      setFormError(null)
+      setFormLoading(false)
+    }
+  }, [isAuthModalOpen])
+
+  useEffect(() => {
+    setFormError(null)
+  }, [authModalMode])
+
+  const handleSignInFieldChange = (event) => {
     const { name, value } = event.target
-    setCredentials((prev) => ({ ...prev, [name]: value }))
+    setSignInForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleCloseModal = () => {
-    setShowModal(false)
-    setCredentials({ email: '', password: '' })
+  const handleSignUpFieldChange = (field, value) => {
+    setSignUpForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSubmit = (event) => {
+  const toggleTopic = (topic) => {
+    setSignUpForm((prev) => {
+      const alreadySelected = prev.topics.includes(topic)
+      let updatedTopics = prev.topics.slice()
+      let otherTopic = prev.otherTopic
+
+      if (alreadySelected) {
+        updatedTopics = updatedTopics.filter((item) => item !== topic)
+        if (topic === 'other') {
+          otherTopic = ''
+        }
+      } else {
+        updatedTopics.push(topic)
+      }
+
+      return {
+        ...prev,
+        topics: updatedTopics,
+        otherTopic,
+      }
+    })
+  }
+
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    setIsSignedIn(true)
-    handleCloseModal()
+    setFormError(null)
+    setFormLoading(true)
+
+    try {
+      if (authModalMode === 'sign-up') {
+      if (!signUpForm.email.trim() || !signUpForm.nickname.trim() || !signUpForm.password.trim()) {
+        throw new Error('Please share your email, password, and nickname so Aurora can remember you.')
+      }
+
+        if (signUpForm.topics.includes('other') && !signUpForm.otherTopic.trim()) {
+          throw new Error('Let me know the other topic you would like Aurora to explore.')
+        }
+
+        const payload = {
+          email: signUpForm.email.trim(),
+        password: signUpForm.password,
+          nickname: signUpForm.nickname.trim(),
+          gender: signUpForm.gender,
+          topics: signUpForm.topics.filter((topic) => topic !== 'other'),
+          other_topic: signUpForm.topics.includes('other') ? signUpForm.otherTopic.trim() : null,
+          wearable_preference: signUpForm.wearablePreference,
+        }
+
+        const response = await axios.post(`${API_BASE_URL}/api/register`, payload)
+        markRegistered(response.data.user)
+      } else {
+        if (!signInForm.email.trim() || !signInForm.password.trim()) {
+          throw new Error('Please enter the email and password linked to your Aurora profile.')
+        }
+
+        const response = await axios.post(`${API_BASE_URL}/api/login`, {
+          email: signInForm.email.trim(),
+          password: signInForm.password,
+        })
+        markRegistered(response.data.user)
+      }
+    } catch (error) {
+      const message =
+        error.response?.data?.detail ||
+        error.message ||
+        'I could not process that request. Please try again.'
+      setFormError(message)
+      setFormLoading(false)
+      return
+    }
+
+    setFormLoading(false)
   }
 
   return (
@@ -61,7 +196,26 @@ function TopNav() {
           <div className="flex items-center gap-3 pointer-events-auto" />
 
           <div className="flex items-center gap-4 pointer-events-auto">
-            {isSignedIn && (
+            {!isRegistered && (
+              <>
+                <button
+                  type="button"
+                  className="rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-indigo-600 shadow transition hover:bg-white"
+                  onClick={() => openAuthModal('sign-up')}
+                >
+                  Sign Up
+                </button>
+                <button
+                  type="button"
+                  className="rounded-full border border-white/60 px-5 py-2 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+                  onClick={() => openAuthModal('sign-in')}
+                >
+                  Sign In
+                </button>
+              </>
+            )}
+
+            {isRegistered && (
               <div className="flex items-center gap-3">
                 {socialIcons.map((item) => (
                   <a
@@ -73,85 +227,280 @@ function TopNav() {
                     {item.svg}
                   </a>
                 ))}
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md shadow-slate-900/30">
-                  <span className="text-sm font-semibold text-indigo-600">U</span>
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md shadow-slate-900/30"
+                  title={userProfile?.nickname || userProfile?.email || 'Aurora Member'}
+                >
+                  <span className="text-sm font-semibold text-indigo-600">{avatarInitial}</span>
                 </div>
               </div>
-            )}
-
-            {!isSignedIn && (
-              <button
-                type="button"
-                className="rounded-full border border-white/60 px-5 py-2 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
-                onClick={() => setShowModal(true)}
-              >
-                Sign In
-              </button>
             )}
           </div>
         </div>
       </div>
 
-      {showModal && (
+      {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
-          <div className="w-full max-w-md rounded-3xl bg-white/95 p-8 shadow-2xl shadow-slate-900/40 backdrop-blur">
+          <div className="w-full max-w-lg rounded-3xl bg-white/95 p-8 shadow-2xl shadow-slate-900/40 backdrop-blur">
             <div className="mb-6 text-center">
               <p className="text-sm uppercase tracking-[0.35em] text-indigo-400">Aurora Access</p>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-900">Sign in to continue the journey</h2>
+              <h2 className="mt-3 text-2xl font-semibold text-slate-900">
+                {authModalMode === 'sign-up'
+                  ? 'Sign up to deepen the journey'
+                  : 'Sign in to continue the journey'}
+              </h2>
               <p className="mt-2 text-sm text-slate-600">
-                Enter your credentials to sync your data and personalize the experience.
+                {authModalMode === 'sign-up'
+                  ? 'Create your profile so Aurora can remember your rhythms and craft more attuned insights.'
+                  : 'Enter your credentials to sync your data and personalize the experience.'}
               </p>
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={credentials.email}
-                  onChange={handleFieldChange}
-                  required
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  placeholder="you@example.com"
-                />
-              </div>
+              {authModalMode === 'sign-in' ? (
+                <>
+                  <div>
+                    <label htmlFor="signin-email" className="block text-sm font-medium text-slate-700">
+                      Email
+                    </label>
+                    <input
+                      id="signin-email"
+                      name="email"
+                      type="email"
+                      value={signInForm.email}
+                      onChange={handleSignInFieldChange}
+                      required
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      placeholder="you@example.com"
+                    />
+                  </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={credentials.password}
-                  onChange={handleFieldChange}
-                  required
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                  placeholder="Enter your password"
-                />
-              </div>
+                  <div>
+                    <label htmlFor="signin-password" className="block text-sm font-medium text-slate-700">
+                      Password
+                    </label>
+                    <input
+                      id="signin-password"
+                      name="password"
+                      type="password"
+                      value={signInForm.password}
+                      onChange={handleSignInFieldChange}
+                      required
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                      <label htmlFor="signup-email" className="block text-sm font-medium text-slate-700">
+                        Email
+                      </label>
+                      <input
+                        id="signup-email"
+                        type="email"
+                        value={signUpForm.email}
+                        onChange={(event) => handleSignUpFieldChange('email', event.target.value)}
+                        required
+                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label htmlFor="signup-password" className="block text-sm font-medium text-slate-700">
+                        Password
+                      </label>
+                      <input
+                        id="signup-password"
+                        type="password"
+                        value={signUpForm.password}
+                        onChange={(event) => handleSignUpFieldChange('password', event.target.value)}
+                        required
+                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        placeholder="Choose a secure password"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label htmlFor="signup-nickname" className="block text-sm font-medium text-slate-700">
+                        Nickname
+                      </label>
+                      <input
+                        id="signup-nickname"
+                        type="text"
+                        value={signUpForm.nickname}
+                        onChange={(event) => handleSignUpFieldChange('nickname', event.target.value)}
+                        required
+                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        placeholder="How should Aurora call you?"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-baseline justify-between">
+                      <label className="block text-sm font-medium text-slate-700">Gender</label>
+                      <span className="text-xs text-slate-500">(supports Mirror accuracy)</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {genderOptions.map((option) => {
+                        const selected = signUpForm.gender === option.value
+                        return (
+                          <label
+                            key={option.value}
+                            className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
+                              selected
+                                ? 'border-indigo-500 bg-indigo-500 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="gender"
+                              value={option.value}
+                              checked={selected}
+                              onChange={() => handleSignUpFieldChange('gender', option.value)}
+                              className="sr-only"
+                            />
+                            {option.label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Topics you want Aurora to track
+                    </label>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {topicOptions.map((topic) => {
+                        const selected = signUpForm.topics.includes(topic.value)
+                        return (
+                          <label
+                            key={topic.value}
+                            className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
+                              selected
+                                ? 'border-indigo-500 bg-indigo-500 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              value={topic.value}
+                              checked={selected}
+                              onChange={() => toggleTopic(topic.value)}
+                              className="sr-only"
+                            />
+                            {topic.label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {signUpForm.topics.includes('other') && (
+                      <input
+                        type="text"
+                        value={signUpForm.otherTopic}
+                        onChange={(event) => handleSignUpFieldChange('otherTopic', event.target.value)}
+                        className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        placeholder="Tell me the other focus you care about"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Initial wearable pairing
+                    </label>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Choose what you would like to connect first. You can update this anytime.
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {wearableOptions.map((option) => {
+                        const selected = signUpForm.wearablePreference === option.value
+                        return (
+                          <label
+                            key={option.value}
+                            className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
+                              selected
+                                ? 'border-indigo-500 bg-indigo-500 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="wearable"
+                              value={option.value}
+                              checked={selected}
+                              onChange={() => handleSignUpFieldChange('wearablePreference', option.value)}
+                              className="sr-only"
+                            />
+                            {option.label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {formError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={handleCloseModal}
+                  onClick={() => closeAuthModal()}
                   className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-600 hover:to-blue-700"
+                  disabled={formLoading}
+                  className="flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Sign In
+                  {formLoading ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white"></span>
+                      Processing...
+                    </span>
+                  ) : (
+                    (authModalMode === 'sign-up' ? 'Sign Up' : 'Sign In')
+                  )}
                 </button>
               </div>
             </form>
+
+            <div className="mt-6 text-center text-sm text-slate-500">
+              {authModalMode === 'sign-up' ? (
+                <>
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    className="font-semibold text-indigo-600 transition hover:text-indigo-500"
+                    onClick={() => setAuthModalMode('sign-in')}
+                  >
+                    Switch to sign in
+                  </button>
+                </>
+              ) : (
+                <>
+                  New to Aurora?{' '}
+                  <button
+                    type="button"
+                    className="font-semibold text-indigo-600 transition hover:text-indigo-500"
+                    onClick={() => setAuthModalMode('sign-up')}
+                  >
+                    Create an account
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -160,4 +509,3 @@ function TopNav() {
 }
 
 export default TopNav
-

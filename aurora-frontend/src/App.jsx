@@ -1,62 +1,87 @@
 import { useState } from 'react'
-import { ModeProvider } from './contexts/ModeContext'
+import { ModeProvider, useMode, MODES } from './contexts/ModeContext'
+import { AuthProvider } from './contexts/AuthContext'
 import TopNav from './components/TopNav'
 import HeroSection from './components/HeroSection/HeroSection'
 import ContentArea from './components/Content/ContentArea'
 
-function App() {
-  const [responseData, setResponseData] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+const createEmptyState = () =>
+  Object.values(MODES).reduce((acc, mode) => {
+    acc[mode] = null
+    return acc
+  }, {})
+
+function AppContent() {
+  const { currentMode } = useMode()
+  const [responses, setResponses] = useState(() => createEmptyState())
+  const [errors, setErrors] = useState(() => createEmptyState())
+  const [loadingMode, setLoadingMode] = useState(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
-  const handleResponse = (data) => {
-    setResponseData(data)
-    setLoading(false)
-    setError(null)
+  const handleResponse = (mode, data) => {
+    setResponses((prev) => ({ ...prev, [mode]: data }))
+    setErrors((prev) => ({ ...prev, [mode]: null }))
+    setLoadingMode((prev) => (prev === mode ? null : prev))
     if (!hasSubmitted) {
       setHasSubmitted(true)
     }
   }
 
-  const handleLoading = (isLoading) => {
-    setLoading(isLoading)
+  const handleLoading = (mode, isLoading) => {
+    setLoadingMode((prev) => {
+      if (isLoading) {
+        return mode
+      }
+      return prev === mode ? null : prev
+    })
   }
 
-  const handleError = (err) => {
-    setError(err)
-    setLoading(false)
+  const handleError = (mode, err) => {
+    setErrors((prev) => ({ ...prev, [mode]: err }))
+    setLoadingMode((prev) => (prev === mode ? null : prev))
   }
+
+  const currentResponse = responses[currentMode] || null
+  const currentError = errors[currentMode] || null
+  const isLoading = loadingMode === currentMode
 
   return (
-    <ModeProvider>
-      <div className="relative min-h-screen">
-        <TopNav />
+    <div className="relative min-h-screen">
+      <TopNav />
 
-        <HeroSection 
-          onResponse={handleResponse}
-          onLoading={handleLoading}
-          onError={handleError}
-          hasSubmitted={hasSubmitted}
-          responseData={responseData}
+      <HeroSection 
+        onResponse={handleResponse}
+        onLoading={handleLoading}
+        onError={handleError}
+        hasSubmitted={hasSubmitted}
+        responseData={currentResponse}
+      />
+      
+      {/* Content Area - Below Hero Section */}
+      <div
+        className={`
+          relative z-10 bg-white min-h-screen px-4
+          transition-all duration-700 ease-in-out
+          ${hasSubmitted ? 'py-8' : 'py-16'}
+        `}
+      >
+        <ContentArea 
+          data={currentResponse}
+          loading={isLoading}
+          error={currentError}
         />
-        
-        {/* Content Area - Below Hero Section */}
-        <div
-          className={`
-            relative z-10 bg-white min-h-screen px-4
-            transition-all duration-700 ease-in-out
-            ${hasSubmitted ? 'py-8' : 'py-16'}
-          `}
-        >
-          <ContentArea 
-            data={responseData}
-            loading={loading}
-            error={error}
-          />
-        </div>
       </div>
-    </ModeProvider>
+    </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <ModeProvider>
+        <AppContent />
+      </ModeProvider>
+    </AuthProvider>
   )
 }
 

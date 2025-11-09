@@ -1,7 +1,11 @@
 # AURORA 运行指南
 
 ## 快速启动
+###启动后端
+cd /Users/jialianzhang/Desktop/aurora/aurora-backend && source venv/bin/activate && uvicorn main:app --reload
 
+###启动前端
+cd /Users/jialianzhang/Desktop/aurora/aurora-frontend && npm run dev
 ### 方法 1: 使用 Python 脚本（推荐）
 
 ```bash
