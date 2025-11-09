@@ -8,11 +8,11 @@ import { useEffect, useMemo, useState } from 'react'
 
 const DEFAULT_PROMPTS = {
   [MODES.COMPANION]: {
-    placeholder: 'In Companion Mode, tell me what is on your heart today.',
+    placeholder: 'I‘m Aurora, tell me what is on your heart today.',
     quickPrompts: ['Ground me gently', 'I feel lonely today', 'Help me process today'],
   },
   [MODES.MIRROR]: {
-    placeholder: 'Good day - your rhythm feels steady. What would you like to reflect on?',
+    placeholder: 'What would you like to reflect on?',
     quickPrompts: ["How was the sleep last night?", "Feeling steady", "Show today's reflection"],
   },
   [MODES.SCIENCE]: {

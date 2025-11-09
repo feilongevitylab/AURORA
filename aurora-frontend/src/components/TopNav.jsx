@@ -81,6 +81,70 @@ function TopNav() {
   const [signUpForm, setSignUpForm] = useState(initialSignUpForm)
   const [formError, setFormError] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+
+  const accountMenuItems = [
+    {
+      label: 'Account settings',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M12 2a5 5 0 015 5v1.26c.71.37 1.37.85 1.97 1.45l1.07-.43a2 2 0 012.54 1.06l1 2.32a2 2 0 01-1.03 2.57l-1.05.45c.1.66.1 1.33 0 1.99l1.05.45a2 2 0 011.03 2.57l-1 2.32a2 2 0 01-2.54 1.06l-1.07-.43a8.03 8.03 0 01-1.97 1.45V22a2 2 0 01-2 2h-2a2 2 0 01-2-2v-1.26a8.03 8.03 0 01-1.97-1.45l-1.07.43a2 2 0 01-2.54-1.06l-1-2.32a2 2 0 011.03-2.57l1.05-.45a7.94 7.94 0 010-1.99l-1.05-.45a2 2 0 01-1.03-2.57l1-2.32a2 2 0 012.54-1.06l1.07.43c.6-.6 1.26-1.08 1.97-1.45V7a5 5 0 015-5zm0 7a3 3 0 100 6 3 3 0 000-6z"
+          />
+        </svg>
+      ),
+      onClick: () => {},
+    },
+    {
+      label: 'Subscription',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M5 4h14a2 2 0 012 2v3H3V6a2 2 0 012-2zm-2 7h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm7 2v3h4v-3h-4z"
+          />
+        </svg>
+      ),
+      onClick: () => {},
+    },
+    {
+      label: 'Feedback',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M4 3h16a2 2 0 012 2v12a2 2 0 01-2 2H8l-4 4V5a2 2 0 012-2zm4 6v2h8V9H8zm0-4v2h12V5H8zm0 8v2h6v-2H8z"
+          />
+        </svg>
+      ),
+      onClick: () => {},
+    },
+    {
+      label: 'Paired device',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M7 2a2 2 0 00-2 2v4h2V4h10v4h2V4a2 2 0 00-2-2H7zm13 6H4a2 2 0 00-2 2v8a2 2 0 002 2h5v2h6v-2h5a2 2 0 002-2v-8a2 2 0 00-2-2zm0 10H4v-8h16v8z"
+          />
+        </svg>
+      ),
+      onClick: () => {},
+    },
+    {
+      label: 'Sign out',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5 text-slate-500" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M10 3a2 2 0 00-2 2v3h2V5h10v14H10v-3H8v3a2 2 0 002 2h10a2 2 0 002-2V5a2 2 0 00-2-2H10zm1 6l-1.41 1.41L12.17 13H3v2h9.17l-2.58 2.59L11 19l5-5-5-5z"
+          />
+        </svg>
+      ),
+      onClick: () => markRegistered(null),
+    },
+  ]
 
   const avatarInitial = useMemo(() => {
     if (!userProfile) return 'U'
@@ -189,6 +253,10 @@ function TopNav() {
     setFormLoading(false)
   }
 
+  const handleResetPassword = () => {
+    window.open('mailto:care@aurorawellness.ai?subject=Reset%20my%20Aurora%20password', '_blank')
+  }
+
   return (
     <>
       <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center">
@@ -228,10 +296,35 @@ function TopNav() {
                   </a>
                 ))}
                 <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md shadow-slate-900/30"
-                  title={userProfile?.nickname || userProfile?.email || 'Aurora Member'}
+                  className="relative"
+                  onMouseEnter={() => setIsAccountMenuOpen(true)}
+                  onMouseLeave={() => setIsAccountMenuOpen(false)}
                 >
-                  <span className="text-sm font-semibold text-indigo-600">{avatarInitial}</span>
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md shadow-slate-900/30 transition hover:shadow-lg"
+                    title={userProfile?.nickname || userProfile?.email || 'Aurora Member'}
+                  >
+                    <span className="text-sm font-semibold text-indigo-600">{avatarInitial}</span>
+                  </button>
+
+                  {isAccountMenuOpen && (
+                    <div className="absolute right-0 top-12 w-56 rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl shadow-slate-900/20 backdrop-blur">
+                      <div className="space-y-1">
+                        {accountMenuItems.map((item) => (
+                          <button
+                            key={item.label}
+                            type="button"
+                            onClick={item.onClick}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-600"
+                          >
+                            {item.icon}
+                            <span>{item.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -476,7 +569,27 @@ function TopNav() {
               </div>
             </form>
 
-            <div className="mt-6 text-center text-sm text-slate-500">
+            <div className="mt-6 space-y-2 text-center text-sm text-slate-500">
+              {authModalMode === 'sign-in' && (
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-indigo-600 transition hover:text-indigo-500"
+                  onClick={handleResetPassword}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="currentColor"
+                      d="M12 5a7 7 0 016.93 6.1l1.57-.27-2.5 4.33-4.33-2.5 1.36-.24A4.5 4.5 0 107.5 12H5a7 7 0 017-7zm0 14a7 7 0 01-6.93-6.1l-1.57.27 2.5-4.33 4.33 2.5-1.36.24a4.5 4.5 0 104.53 5.42H19a7 7 0 01-7 7z"
+                    />
+                  </svg>
+                  Reset your password
+                </button>
+              )}
+
               {authModalMode === 'sign-up' ? (
                 <>
                   Already have an account?{' '}
