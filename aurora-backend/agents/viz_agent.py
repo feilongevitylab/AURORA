@@ -2,12 +2,14 @@
 Visualization Agent - Handles chart generation using Plotly.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 import plotly.graph_objects as go
-import pandas as pd
 import json
-import os
+import pandas as pd
+import numpy as np
+
+from data.mock_datasets import load_base_hrv_df
 
 
 class VizAgent:
@@ -33,7 +35,19 @@ class VizAgent:
         Returns:
             Dictionary containing Plotly figure as JSON
         """
-        if data and data.get("mirror_trend"):
+        dataset_label = None
+        if data:
+            dataset_label = (
+                data.get("data_summary", {}).get("dataset")
+                or data.get("metadata", {}).get("dataset")
+            )
+
+        alternate_views: List[Dict[str, Any]] = []
+
+        if dataset_label == "science_hrv_stress":
+            fig, alternate_views, recommendations = self._create_science_hrv_stress_views(data)
+            chart_type = "science_hrv_stress_scatter"
+        elif data and data.get("mirror_trend"):
             fig = self._create_mirror_trend_chart(data["mirror_trend"])
             chart_type = "mirror_trend"
             recommendations = [
@@ -57,6 +71,10 @@ class VizAgent:
             "result": {
                 "chart_type": chart_type,
                 "plotly_json": fig_json,
+                "alternate_views": [
+                    {"id": view["id"], "label": view["label"], "plotly_json": view["plotly_json"]}
+                    for view in alternate_views
+                ],
                 "query": query,
                 "recommendations": recommendations,
                 "timestamp": datetime.now().isoformat(),
@@ -202,23 +220,151 @@ class VizAgent:
         Returns:
             DataFrame with columns: id, hrv, stress_score, age
         """
-        csv_path = "mock_hrv_data.csv"
-        
-        if os.path.exists(csv_path):
-            df = pd.read_csv(csv_path)
-        else:
-            # Generate mock data if CSV doesn't exist
-            mock_data = {
-                "id": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-                "hrv": [45.2, 52.8, 38.5, 61.3, 49.7, 55.1, 42.9, 58.6, 48.3, 
-                       53.7, 40.1, 56.4, 47.2, 59.8, 44.6],
-                "stress_score": [25, 15, 45, 10, 30, 20, 50, 12, 35, 18, 55, 
-                                22, 28, 8, 40],
-                "age": [28, 32, 25, 35, 30, 27, 22, 38, 29, 33, 26, 31, 34, 40, 24]
-            }
-            df = pd.DataFrame(mock_data)
-            # Save for future use
-            df.to_csv(csv_path, index=False)
-        
-        return df
+        return load_base_hrv_df()
+
+    def _create_science_hrv_stress_views(
+        self, data: Dict[str, Any]
+    ) -> (go.Figure, List[Dict[str, Any]], List[str]):
+        """
+        Build the specialized visualisations for the science HRV-under-stress dataset.
+        """
+        trend_records = data.get("hrv_stress_trend", [])
+        if not trend_records:
+            fallback_fig = self._create_hrv_vs_stress_scatter()
+            fallback_recs = [
+                "Scatter plot showing HRV vs Stress relationship",
+                "Interactive zoom and pan enabled",
+                "Hover tooltips show individual data points",
+            ]
+            return fallback_fig, [], fallback_recs
+
+        df = pd.DataFrame(trend_records)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df["stress_bucket"] = df["stress_bucket"].astype(str)
+
+        # Scatter plot with regression line showing overall relationship
+        scatter_fig = go.Figure()
+        scatter_fig.add_trace(
+            go.Scatter(
+                x=df["stress_score"],
+                y=df["hrv"],
+                mode="markers",
+                name="Session",
+                marker=dict(
+                    size=10,
+                    color=df["stress_score"],
+                    colorscale="RdYlBu_r",
+                    showscale=True,
+                    colorbar=dict(title="Stress Score"),
+                ),
+                text=[
+                    f"{row.day} • {row.session} • ΔHRV {row.hrv_delta_from_baseline} ms"
+                    for row in df.itertuples()
+                ],
+                hovertemplate="<b>Stress:</b> %{x}<br><b>HRV:</b> %{y}<br>%{text}<extra></extra>",
+            )
+        )
+        if df["stress_score"].nunique() >= 2:
+            coeffs = np.polyfit(df["stress_score"], df["hrv"], 1)
+            x_range = np.linspace(df["stress_score"].min(), df["stress_score"].max(), 50)
+            y_fit = coeffs[0] * x_range + coeffs[1]
+            scatter_fig.add_trace(
+                go.Scatter(
+                    x=x_range,
+                    y=y_fit,
+                    mode="lines",
+                    name="Regression",
+                    line=dict(color="#fb7185", width=3),
+                    hoverinfo="skip",
+                )
+            )
+        scatter_fig.update_layout(
+            title=dict(
+                text="HRV decreases as stress load increases",
+                x=0.5,
+                font=dict(size=20),
+            ),
+            xaxis=dict(title="Stress Score"),
+            yaxis=dict(title="HRV (ms)"),
+            template="plotly_white",
+        )
+
+        # Box plot comparing HRV distribution across stress buckets
+        box_fig = go.Figure()
+        for bucket in ["low", "moderate", "high"]:
+            bucket_df = df[df["stress_bucket"] == bucket]
+            if bucket_df.empty:
+                continue
+            box_fig.add_trace(
+                go.Box(
+                    y=bucket_df["hrv"],
+                    name=bucket.capitalize(),
+                    boxmean="sd",
+                    marker_color=(
+                        "#4ade80" if bucket == "low" else "#facc15" if bucket == "moderate" else "#f87171"
+                    ),
+                )
+            )
+        box_fig.update_layout(
+            title=dict(text="HRV distribution by stress bucket", x=0.5),
+            yaxis=dict(title="HRV (ms)"),
+            template="plotly_white",
+        )
+
+        # Trend chart with dual y-axes to show HRV vs stress over time
+        trend_fig = go.Figure()
+        trend_fig.add_trace(
+            go.Scatter(
+                x=df["timestamp"],
+                y=df["hrv"],
+                mode="lines+markers",
+                name="HRV",
+                line=dict(color="#22d3ee", width=3),
+                marker=dict(size=8),
+            )
+        )
+        trend_fig.add_trace(
+            go.Scatter(
+                x=df["timestamp"],
+                y=df["stress_score"],
+                mode="lines+markers",
+                name="Stress Score",
+                line=dict(color="#f97316", width=3, dash="dash"),
+                marker=dict(size=8),
+                yaxis="y2",
+            )
+        )
+        trend_fig.update_layout(
+            title=dict(text="Session trend: stress climbs as HRV wanes", x=0.5),
+            xaxis=dict(title="Session timeline"),
+            yaxis=dict(title="HRV (ms)"),
+            yaxis2=dict(
+                title="Stress Score",
+                overlaying="y",
+                side="right",
+                showgrid=False,
+            ),
+            template="plotly_white",
+        )
+
+        alternate_views = [
+            {
+                "id": "box_hrv_by_stress_bucket",
+                "label": "HRV by Stress Bucket",
+                "plotly_json": json.loads(box_fig.to_json()),
+            },
+            {
+                "id": "trend_hrv_stress",
+                "label": "Session Trend",
+                "plotly_json": json.loads(trend_fig.to_json()),
+            },
+        ]
+
+        recommendations = [
+            "Use the regression overlay to explain the inverse HRV–stress trend.",
+            "Switch to the stress bucket view to highlight recovery differences across buckets.",
+            "Play the session timeline to narrate how sustained stress erodes HRV across the week.",
+        ]
+
+        return scatter_fig, alternate_views, recommendations
 

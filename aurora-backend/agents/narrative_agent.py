@@ -205,6 +205,8 @@ class NarrativeAgent:
                 prompt_lines.append(f"User question: {raw_question}")
             if dataset == "science_cortisol_focus":
                 prompt_lines.append("The dataset reflects cortisol rhythms, cognitive performance, and sleep dynamics. Focus on how neuroendocrine factors relate to the user's question.")
+            elif dataset == "science_hrv_stress":
+                prompt_lines.append("The dataset tracks repeated HRV readings as stress load accumulates across sessions. Explain why HRV falls when stress rises, referencing correlation strength, bucket comparisons, and timeline shifts.")
             elif dataset == "companion_sleep_relaxation":
                 prompt_lines.append("The dataset reflects restorative habits, sleep quality, and relaxation patterns. Use it to ground soothing, practical suggestions.")
             else:
@@ -276,6 +278,34 @@ class NarrativeAgent:
                     parts.append(f"  {bucket}:")
                     for metric, value in metrics.items():
                         parts.append(f"    {metric}: {value}")
+        elif dataset == "science_hrv_stress":
+            stress_buckets = data_summary.get("stress_bucket_summary", {})
+            if stress_buckets:
+                parts.append("\nStress buckets (HRV vs stress dataset):")
+                for bucket, metrics in stress_buckets.items():
+                    parts.append(
+                        f"  {bucket}: HRV={metrics.get('avg_hrv', 'N/A')} ms, "
+                        f"stress={metrics.get('avg_stress', 'N/A')}, "
+                        f"ΔHRV={metrics.get('avg_hrv_delta', 'N/A')} ms, sessions={metrics.get('sessions', 'N/A')}"
+                    )
+            session_summary = data_summary.get("session_summary", {})
+            if session_summary:
+                parts.append("\nSession averages:")
+                for session, metrics in session_summary.items():
+                    parts.append(
+                        f"  {session}: HRV={metrics.get('avg_hrv', 'N/A')} ms, "
+                        f"stress={metrics.get('avg_stress', 'N/A')}, "
+                        f"variability={metrics.get('avg_variability', 'N/A')}"
+                    )
+            trend_preview = data_summary.get("hrv_stress_trend", [])[:4]
+            if trend_preview:
+                parts.append("\nTrend sample:")
+                for row in trend_preview:
+                    parts.append(
+                        f"  {row.get('timestamp')} ({row.get('session')}): "
+                        f"HRV {row.get('hrv')} ms, stress {row.get('stress_score')}, "
+                        f"ΔHRV {row.get('hrv_delta_from_baseline')} ms"
+                    )
         elif dataset == "companion_sleep_relaxation":
             sleep_buckets = data_summary.get("sleep_buckets", {})
             if sleep_buckets:
@@ -353,6 +383,19 @@ class NarrativeAgent:
                 if correlations:
                     key_corr = max(correlations.items(), key=lambda item: abs(item[1]))
                     explanation_parts.append(f"I notice the strongest relationship appears between {key_corr[0].replace('_vs_', ' vs ')} at {key_corr[1]}.")
+            elif dataset == "science_hrv_stress":
+                avg_hrv = statistics.get("hrv", {}).get("mean")
+                avg_stress = statistics.get("stress_score", {}).get("mean")
+                corr_value = correlations.get("hrv_vs_stress_score")
+                explanation_parts.append(
+                    f"Across the recent sessions your HRV averages {avg_hrv} ms while subjective stress sits near {avg_stress}."
+                )
+                if corr_value is not None:
+                    explanation_parts.append(
+                        f"The relationship is strongly inverse (r={corr_value:.3f}); when stress spikes, HRV falls away from baseline."
+                    )
+                if insights:
+                    explanation_parts.append(insights[0])
             elif hrv_by_stress:
                 if insights:
                     explanation_parts.append(insights[0])
@@ -382,6 +425,22 @@ class NarrativeAgent:
             return " ".join(explanation_parts)
             
         elif mode == "science":
+            if dataset == "science_hrv_stress":
+                corr_value = correlations.get("hrv_vs_stress_score", 0)
+                avg_delta = statistics.get("hrv_delta_from_baseline", {}).get("mean")
+                explanation_lines = [
+                    f"Heart rate variability (HRV) demonstrates a strong inverse correlation with stress (r={corr_value:.3f}).",
+                    "Elevated stress activates sympathetic pathways, reducing parasympathetic tone and compressing HRV.",
+                ]
+                if avg_delta is not None:
+                    abs_delta = abs(avg_delta)
+                    direction = "below" if avg_delta < 0 else "above"
+                    explanation_lines.append(
+                        f"On average, HRV sits {abs_delta} ms {direction} baseline during the high-stress segments captured this week."
+                    )
+                if insights:
+                    explanation_lines.extend(insights[:2])
+                return " ".join(explanation_lines)
             # Professional, scientific tone for science mode
             if hrv_by_stress and correlations:
                 hrv_stress_corr = correlations.get("hrv_vs_stress", 0)

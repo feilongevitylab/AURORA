@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
 import Plot from 'react-plotly.js'
 
@@ -22,6 +22,59 @@ function Dashboard() {
 
   // State for user query input
   const [userQuery, setUserQuery] = useState('analyze and visualize my HRV data')
+  const [selectedChartView, setSelectedChartView] = useState('primary')
+
+  useEffect(() => {
+    if (insightData?.chart) {
+      setSelectedChartView('primary')
+    }
+  }, [insightData?.chart])
+
+  const activeChart = useMemo(() => {
+    if (!insightData?.chart) return null
+
+    const primaryView = {
+      data: insightData.chart.data || [],
+      layout: insightData.chart.layout || {},
+    }
+
+    if (selectedChartView === 'primary') {
+      return primaryView
+    }
+
+    const alternate = insightData.chart.alternate_views?.find(
+      (view) => view.id === selectedChartView
+    )
+
+    if (alternate) {
+      return {
+        data: alternate.data || [],
+        layout: alternate.layout || {},
+      }
+    }
+
+    return primaryView
+  }, [insightData, selectedChartView])
+
+  const metadataMetrics = useMemo(() => {
+    const metrics = insightData?.data?.metadata?.metrics
+    if (!metrics) return []
+    return Object.entries(metrics)
+      .filter(([, value]) => value !== null && value !== undefined)
+      .map(([label, value]) => ({
+        label,
+        value,
+      }))
+  }, [insightData])
+
+  const stressBucketSummary = useMemo(() => {
+    const summary = insightData?.data?.stress_bucket_summary
+    if (!summary) return []
+    return Object.entries(summary).map(([bucket, metrics]) => ({
+      bucket,
+      ...metrics,
+    }))
+  }, [insightData])
 
   // Fetch HRV data
   useEffect(() => {
@@ -227,12 +280,12 @@ function Dashboard() {
                       Try Again
                     </button>
                   </div>
-                ) : insightData?.chart ? (
+                ) : insightData?.chart && activeChart ? (
                   <div className="w-full h-full min-h-0">
                     <Plot
-                      data={insightData.chart.data || []}
+                      data={activeChart.data}
                       layout={{
-                        ...insightData.chart.layout,
+                        ...activeChart.layout,
                         autosize: true,
                         responsive: true,
                         height: undefined,
@@ -242,10 +295,50 @@ function Dashboard() {
                         displayModeBar: true,
                         displaylogo: false,
                         autosizable: true,
+                        ...(insightData.chart.config || {}),
                       }}
                       style={{ width: '100%', height: '100%' }}
                       useResizeHandler={true}
                     />
+                    {insightData.chart.alternate_views?.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setSelectedChartView('primary')}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                            selectedChartView === 'primary'
+                              ? 'bg-indigo-600 text-white shadow'
+                              : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                          }`}
+                        >
+                          Primary view
+                        </button>
+                        {insightData.chart.alternate_views.map((view) => (
+                          <button
+                            key={view.id}
+                            onClick={() => setSelectedChartView(view.id)}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                              selectedChartView === view.id
+                                ? 'bg-indigo-600 text-white shadow'
+                                : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                            }`}
+                          >
+                            {view.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {insightData.chart.recommendations?.length > 0 && (
+                      <div className="mt-4 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-indigo-900 mb-2">
+                          How to interpret this view
+                        </h3>
+                        <ul className="space-y-1 text-sm text-indigo-800 list-disc list-inside">
+                          {insightData.chart.recommendations.map((tip, index) => (
+                            <li key={index}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg border-2 border-dashed border-gray-300 p-8 w-full max-w-md mx-auto">
@@ -357,6 +450,68 @@ function Dashboard() {
                   </div>
                 ) : null}
               </div>
+
+              {metadataMetrics.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <span className="mr-1">🧪</span>
+                    Science Mode Metrics
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {metadataMetrics.map(({ label, value }) => {
+                      const formattedLabel = label.replace(/_/g, ' ')
+                      const formattedValue =
+                        typeof value === 'number' ? value.toFixed(2) : value
+                      return (
+                        <div
+                          key={label}
+                          className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2"
+                        >
+                          <p className="text-xs uppercase tracking-wide text-indigo-500 mb-1">
+                            {formattedLabel}
+                          </p>
+                          <p className="text-sm font-semibold text-indigo-900">{formattedValue}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {stressBucketSummary.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    <span className="mr-1">📉</span>
+                    HRV by Stress Bucket
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-100 text-gray-700">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-semibold">Bucket</th>
+                          <th className="px-4 py-2 text-left font-semibold">Sessions</th>
+                          <th className="px-4 py-2 text-left font-semibold">Avg HRV (ms)</th>
+                          <th className="px-4 py-2 text-left font-semibold">Avg Stress</th>
+                          <th className="px-4 py-2 text-left font-semibold">Δ HRV (ms)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-700">
+                        {stressBucketSummary.map((row) => (
+                          <tr key={row.bucket}>
+                            <td className="px-4 py-2 capitalize">{row.bucket}</td>
+                            <td className="px-4 py-2">{row.sessions ?? '—'}</td>
+                            <td className="px-4 py-2">{row.avg_hrv?.toFixed(2) ?? '—'}</td>
+                            <td className="px-4 py-2">{row.avg_stress?.toFixed(2) ?? '—'}</td>
+                            <td className="px-4 py-2">
+                              {row.avg_hrv_delta != null ? row.avg_hrv_delta.toFixed(2) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

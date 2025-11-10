@@ -55,6 +55,34 @@ class AuroraCoreAgent:
             self.execution_log.append(log_entry)
             print(f"[Debug] {log_entry}")
             print(f"[Debug] Agent output keys: {list(agent_result.keys())}")
+
+    def _format_chart_payload(self, chart_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize chart payload so the frontend receives data/layout plus optional alternate views.
+        """
+        plotly_json = chart_result.get("plotly_json", {})
+        alternate_views = chart_result.get("alternate_views", [])
+
+        formatted_alternates = []
+        for view in alternate_views:
+            view_json = view.get("plotly_json", {})
+            formatted_alternates.append(
+                {
+                    "id": view.get("id"),
+                    "label": view.get("label"),
+                    "data": view_json.get("data", []),
+                    "layout": view_json.get("layout", {}),
+                }
+            )
+
+        return {
+            "chart_type": chart_result.get("chart_type"),
+            "data": plotly_json.get("data", []),
+            "layout": plotly_json.get("layout", {}),
+            "config": chart_result.get("config", {}),
+            "alternate_views": formatted_alternates,
+            "recommendations": chart_result.get("recommendations", []),
+        }
     
     def get_execution_log(self) -> List[str]:
         """
@@ -128,7 +156,7 @@ class AuroraCoreAgent:
             
             viz_result = self.viz_agent.run(query, result["data"])
             self._log_agent_execution(self.viz_agent.name, viz_result)
-            result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+            result["chart"] = self._format_chart_payload(viz_result.get("result", {}))
             
             # Also include narrative for context
             narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
@@ -161,6 +189,10 @@ class AuroraCoreAgent:
                 if dataset_label:
                     context["dataset"] = dataset_label
             
+            viz_result = self.viz_agent.run(query, result["data"])
+            self._log_agent_execution(self.viz_agent.name, viz_result)
+            result["chart"] = self._format_chart_payload(viz_result.get("result", {}))
+            
             narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
             result["insight"] = narrative_result.get("result", {}).get("explanation", "")
@@ -191,7 +223,7 @@ class AuroraCoreAgent:
                 
                 viz_result = self.viz_agent.run(query, result.get("data"))
                 self._log_agent_execution(self.viz_agent.name, viz_result)
-                result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+                result["chart"] = self._format_chart_payload(viz_result.get("result", {}))
             
             # 3. If query includes "explain" → call NarrativeAgent
             if "explain" in query_lower:
@@ -223,7 +255,7 @@ class AuroraCoreAgent:
                 
                 viz_result = self.viz_agent.run(query, result["data"])
                 self._log_agent_execution(self.viz_agent.name, viz_result)
-                result["chart"] = viz_result.get("result", {}).get("plotly_json", {})
+                result["chart"] = self._format_chart_payload(viz_result.get("result", {}))
                 
                 narrative_result = self.narrative_agent.run(result["data"], mode=mode)
                 self._log_agent_execution(self.narrative_agent.name, narrative_result)
