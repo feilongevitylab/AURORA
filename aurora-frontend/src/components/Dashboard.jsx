@@ -72,7 +72,9 @@ function Dashboard() {
       setInsightLoading(true)
       setInsightError(null)
       const response = await axios.post(`${API_BASE_URL}/api/insight`, {
-        query: userQuery.trim()
+        query: userQuery.trim(),
+        raw_query: userQuery,
+        mode: 'science'
       })
       setInsightData(response.data)
     } catch (error) {

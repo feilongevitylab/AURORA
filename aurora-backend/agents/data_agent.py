@@ -29,6 +29,8 @@ class DataAgent:
         self.data_file = data_file
         self.df = None
         self._load_data()
+        self.mock_science_df = None
+        self.mock_companion_df = None
     
     def _load_data(self) -> pd.DataFrame:
         """
@@ -45,6 +47,48 @@ class DataAgent:
             self.df = self._generate_mock_hrv_data()
         
         return self.df
+
+    def _load_science_mock_data(self) -> pd.DataFrame:
+        if self.mock_science_df is not None:
+            return self.mock_science_df
+
+        mock_data = {
+            "id": list(range(1, 11)),
+            "cortisol_morning": [18.5, 19.2, 17.8, 21.1, 16.9, 20.3, 18.7, 22.4, 19.8, 17.2],
+            "cortisol_evening": [6.2, 5.9, 7.1, 5.4, 6.8, 5.7, 6.1, 5.2, 5.6, 6.4],
+            "reaction_time_ms": [245, 232, 258, 225, 268, 238, 241, 222, 235, 252],
+            "focus_index": [78, 82, 75, 88, 70, 85, 80, 90, 82, 76],
+            "sleep_duration": [7.2, 7.5, 6.8, 7.9, 6.5, 7.3, 7.1, 8.1, 7.4, 6.9],
+        }
+
+        df = pd.DataFrame(mock_data)
+
+        df["cortisol_ratio"] = (df["cortisol_morning"] / df["cortisol_evening"]).round(2)
+        df["focus_per_sleep"] = (df["focus_index"] / df["sleep_duration"]).round(2)
+
+        self.mock_science_df = df
+        return df
+
+    def _load_companion_mock_data(self) -> pd.DataFrame:
+        if self.mock_companion_df is not None:
+            return self.mock_companion_df
+
+        mock_data = {
+            "id": list(range(1, 11)),
+            "sleep_hours": [6.2, 7.4, 5.8, 7.9, 6.5, 7.1, 8.0, 6.8, 7.6, 6.3],
+            "sleep_quality": [62, 78, 55, 82, 68, 75, 88, 70, 81, 60],
+            "breath_rate": [17, 15, 18, 14, 16, 15, 13, 16, 14, 18],
+            "anxiety_score": [62, 48, 70, 45, 58, 52, 40, 55, 49, 68],
+            "relaxation_minutes": [12, 26, 8, 32, 18, 24, 36, 20, 28, 10],
+        }
+
+        df = pd.DataFrame(mock_data)
+
+        df["sleep_efficiency"] = ((df["sleep_quality"] / df["sleep_hours"]).clip(0, 100)).round(1)
+        df["relaxation_index"] = ((df["relaxation_minutes"] / (df["anxiety_score"] + 1)) * 100).round(1)
+
+        self.mock_companion_df = df
+        return df
     
     def _generate_mock_hrv_data(self) -> pd.DataFrame:
         """
@@ -82,37 +126,47 @@ class DataAgent:
         Returns:
             Dictionary containing processed data and analysis results
         """
-        # Reload data if needed
-        if self.df is None:
-            self._load_data()
-        
-        # Perform analysis based on query
-        statistics = self._calculate_statistics()
-        hrv_by_stress = self._calculate_hrv_by_stress()
-        hrv_by_age_group = self._calculate_hrv_by_age_group()
-        correlations = self._calculate_correlations()
-        mode = (context or {}).get("mode")
+        context = context or {}
+        mode = context.get("mode")
+        query_lower = query.lower()
+
+        dataset_label = "hrv"
+        if mode == "science" and any(keyword in query_lower for keyword in ["cortisol", "focus", "glucose", "neuro", "luteal", "hormone", "cognitive"]):
+            df = self._load_science_mock_data()
+            dataset_label = "science_cortisol_focus"
+        elif mode == "companion" and any(keyword in query_lower for keyword in ["sleep", "relax", "anxiety", "stress management", "breathing", "mindful"]):
+            df = self._load_companion_mock_data()
+            dataset_label = "companion_sleep_relaxation"
+        else:
+            if self.df is None:
+                self._load_data()
+            df = self.df
+
+        # Perform analysis based on chosen dataset
+        statistics = self._calculate_statistics(df, dataset_label)
+        grouped_summary = self._calculate_groupings(df, dataset_label)
+        correlations = self._calculate_correlations(df, dataset_label)
         
         # Generate insights
-        insights = self._generate_insights(statistics, hrv_by_stress, correlations)
+        insights = self._generate_insights(statistics, grouped_summary, correlations, dataset_label)
         
         processed_data = {
             "query": query,
             "timestamp": datetime.now().isoformat(),
             "data_summary": {
-                "total_records": len(self.df),
-                "columns": list(self.df.columns),
-                "shape": self.df.shape,
+                "total_records": len(df),
+                "columns": list(df.columns),
+                "shape": df.shape,
+                "dataset": dataset_label,
             },
             "statistics": statistics,
-            "hrv_by_stress_level": hrv_by_stress,
-            "hrv_by_age_group": hrv_by_age_group,
+            **grouped_summary,
             "correlations": correlations,
             "insights": insights,
             "status": "processed",
         }
 
-        if mode == "mirror":
+        if mode == "mirror" and dataset_label == "hrv":
             mirror_layers = self._generate_mirror_layers(statistics)
             mirror_trend = self._generate_mirror_trend()
             mirror_summary = self._generate_mirror_summary(statistics, correlations)
@@ -135,145 +189,173 @@ class DataAgent:
             "success": True,
         }
     
-    def _calculate_statistics(self) -> Dict[str, Any]:
-        """Calculate basic statistics for HRV data"""
+    def _calculate_statistics(self, df: pd.DataFrame, dataset_label: str) -> Dict[str, Any]:
+        if dataset_label == "science_cortisol_focus":
+            return {
+                "cortisol_morning": self._describe_series(df["cortisol_morning"]),
+                "cortisol_evening": self._describe_series(df["cortisol_evening"]),
+                "cortisol_ratio": self._describe_series(df["cortisol_ratio"]),
+                "focus_index": self._describe_series(df["focus_index"]),
+                "reaction_time_ms": self._describe_series(df["reaction_time_ms"]),
+                "sleep_duration": self._describe_series(df["sleep_duration"]),
+            }
+        if dataset_label == "companion_sleep_relaxation":
+            return {
+                "sleep_hours": self._describe_series(df["sleep_hours"]),
+                "sleep_quality": self._describe_series(df["sleep_quality"]),
+                "sleep_efficiency": self._describe_series(df["sleep_efficiency"]),
+                "anxiety_score": self._describe_series(df["anxiety_score"]),
+                "relaxation_minutes": self._describe_series(df["relaxation_minutes"]),
+                "relaxation_index": self._describe_series(df["relaxation_index"]),
+            }
+        # default HRV dataset
         return {
-            "hrv": {
-                "count": int(self.df["hrv"].count()),
-                "mean": round(float(self.df["hrv"].mean()), 2),
-                "std": round(float(self.df["hrv"].std()), 2),
-                "min": round(float(self.df["hrv"].min()), 2),
-                "max": round(float(self.df["hrv"].max()), 2),
-                "median": round(float(self.df["hrv"].median()), 2),
-            },
-            "stress_score": {
-                "count": int(self.df["stress_score"].count()),
-                "mean": round(float(self.df["stress_score"].mean()), 2),
-                "std": round(float(self.df["stress_score"].std()), 2),
-                "min": round(float(self.df["stress_score"].min()), 2),
-                "max": round(float(self.df["stress_score"].max()), 2),
-                "median": round(float(self.df["stress_score"].median()), 2),
-            },
-            "age": {
-                "count": int(self.df["age"].count()),
-                "mean": round(float(self.df["age"].mean()), 2),
-                "std": round(float(self.df["age"].std()), 2),
-                "min": int(self.df["age"].min()),
-                "max": int(self.df["age"].max()),
-                "median": round(float(self.df["age"].median()), 2),
-            },
+            "hrv": self._describe_series(df["hrv"]),
+            "stress_score": self._describe_series(df["stress_score"]),
+            "age": self._describe_series(df["age"]),
         }
-    
-    def _calculate_hrv_by_stress(self) -> Dict[str, Any]:
-        """
-        Calculate average HRV grouped by stress level.
-        Groups stress scores into categories: Low (<20), Medium (20-35), High (>35)
-        """
-        # Create stress categories
+ 
+    def _calculate_groupings(self, df: pd.DataFrame, dataset_label: str) -> Dict[str, Any]:
+        if dataset_label == "science_cortisol_focus":
+            focus_bins = pd.cut(df["focus_index"], bins=[0, 70, 80, 100], labels=["Underloaded", "Optimal", "Peak"], include_lowest=True)
+            grouped = df.groupby(focus_bins).agg({
+                "cortisol_morning": "mean",
+                "cortisol_evening": "mean",
+                "cortisol_ratio": "mean",
+                "reaction_time_ms": "mean"
+            }).round(2)
+
+            return {
+                "focus_buckets": grouped.to_dict(orient="index"),
+            }
+
+        if dataset_label == "companion_sleep_relaxation":
+            sleep_bins = pd.cut(df["sleep_hours"], bins=[0, 6, 7.5, 10], labels=["Low", "Adequate", "Restorative"], include_lowest=True)
+            grouped = df.groupby(sleep_bins).agg({
+                "sleep_quality": "mean",
+                "sleep_efficiency": "mean",
+                "anxiety_score": "mean",
+                "relaxation_minutes": "mean"
+            }).round(1)
+
+            return {
+                "sleep_buckets": grouped.to_dict(orient="index"),
+            }
+
+        # default HRV grouping
         def categorize_stress(score):
             if score < 20:
                 return "Low"
-            elif score <= 35:
+            if score <= 35:
                 return "Medium"
-            else:
-                return "High"
-        
-        self.df["stress_category"] = self.df["stress_score"].apply(categorize_stress)
-        
-        # Group by stress category and calculate statistics
-        grouped = self.df.groupby("stress_category")["hrv"].agg([
+            return "High"
+
+        df_copy = df.copy()
+        df_copy["stress_category"] = df_copy["stress_score"].apply(categorize_stress)
+        stress_grouped = df_copy.groupby("stress_category")["hrv"].agg([
             "count", "mean", "std", "min", "max"
         ]).round(2)
-        
-        # Convert to dictionary format
-        result = {}
-        for category in grouped.index:
-            result[category] = {
-                "count": int(grouped.loc[category, "count"]),
-                "average_hrv": round(float(grouped.loc[category, "mean"]), 2),
-                "std": round(float(grouped.loc[category, "std"]), 2),
-                "min": round(float(grouped.loc[category, "min"]), 2),
-                "max": round(float(grouped.loc[category, "max"]), 2),
-            }
-        
-        return result
-    
-    def _calculate_hrv_by_age_group(self) -> Dict[str, Any]:
-        """
-        Calculate average HRV grouped by age groups.
-        Groups ages into: Young (<30), Middle (30-35), Senior (>35)
-        """
-        # Create age groups
+
         def categorize_age(age):
             if age < 30:
                 return "Young"
-            elif age <= 35:
+            if age <= 35:
                 return "Middle"
-            else:
-                return "Senior"
-        
-        self.df["age_group"] = self.df["age"].apply(categorize_age)
-        
-        # Group by age group and calculate statistics
-        grouped = self.df.groupby("age_group")["hrv"].agg([
+            return "Senior"
+
+        df_copy["age_group"] = df_copy["age"].apply(categorize_age)
+        age_grouped = df_copy.groupby("age_group")["hrv"].agg([
             "count", "mean", "std"
         ]).round(2)
-        
-        # Convert to dictionary format
-        result = {}
-        for group in grouped.index:
-            result[group] = {
-                "count": int(grouped.loc[group, "count"]),
-                "average_hrv": round(float(grouped.loc[group, "mean"]), 2),
-                "std": round(float(grouped.loc[group, "std"]), 2),
-            }
-        
-        return result
-    
-    def _calculate_correlations(self) -> Dict[str, float]:
-        """Calculate correlation coefficients between numeric columns"""
-        numeric_cols = ["hrv", "stress_score", "age"]
-        corr_matrix = self.df[numeric_cols].corr()
-        
-        correlations = {
-            "hrv_vs_stress": round(float(corr_matrix.loc["hrv", "stress_score"]), 3),
-            "hrv_vs_age": round(float(corr_matrix.loc["hrv", "age"]), 3),
-            "stress_vs_age": round(float(corr_matrix.loc["stress_score", "age"]), 3),
+
+        return {
+            "hrv_by_stress_level": stress_grouped.to_dict(orient="index"),
+            "hrv_by_age_group": age_grouped.to_dict(orient="index"),
         }
-        
+
+    def _calculate_correlations(self, df: pd.DataFrame, dataset_label: str) -> Dict[str, float]:
+        if dataset_label == "science_cortisol_focus":
+            numeric_cols = ["cortisol_morning", "cortisol_evening", "cortisol_ratio", "focus_index", "reaction_time_ms", "sleep_duration"]
+        elif dataset_label == "companion_sleep_relaxation":
+            numeric_cols = ["sleep_hours", "sleep_quality", "sleep_efficiency", "anxiety_score", "relaxation_minutes", "relaxation_index"]
+        else:
+            numeric_cols = ["hrv", "stress_score", "age"]
+
+        corr_matrix = df[numeric_cols].corr()
+        correlations = {}
+        for i, col_i in enumerate(numeric_cols):
+            for col_j in numeric_cols[i + 1:]:
+                correlations[f"{col_i}_vs_{col_j}"] = round(float(corr_matrix.loc[col_i, col_j]), 3)
+
         return correlations
-    
-    def _generate_insights(self, statistics: Dict, hrv_by_stress: Dict, 
-                          correlations: Dict) -> List[str]:
-        """Generate insights from the analysis"""
+
+    def _generate_insights(self, statistics: Dict, grouped_summary: Dict, correlations: Dict, dataset_label: str) -> List[str]:
         insights = []
-        
-        # HRV insights
+
+        if dataset_label == "science_cortisol_focus":
+            morning = statistics["cortisol_morning"]["mean"]
+            evening = statistics["cortisol_evening"]["mean"]
+            ratio = statistics["cortisol_ratio"]["mean"]
+            focus = statistics["focus_index"]["mean"]
+            reaction = statistics["reaction_time_ms"]["mean"]
+            insights.append(f"Average morning cortisol {morning} µg/dL with ratio {ratio}; evening baseline {evening} µg/dL.")
+            insights.append(f"Focus index averages {focus} while reaction time sits near {reaction} ms, suggesting cognitive load trends.")
+            if "focus_buckets" in grouped_summary:
+                optimal = grouped_summary["focus_buckets"].get("Optimal", {})
+                if optimal:
+                    insights.append(
+                        f"When focus is optimal, cortisol ratio averages {optimal.get('cortisol_ratio', 'N/A')} and reaction time {optimal.get('reaction_time_ms', 'N/A')} ms."
+                    )
+            for pair, value in correlations.items():
+                if abs(value) >= 0.35:
+                    insights.append(f"Notable correlation {pair}: {value}.")
+            return insights
+
+        if dataset_label == "companion_sleep_relaxation":
+            sleep_hours = statistics["sleep_hours"]["mean"]
+            efficiency = statistics["sleep_efficiency"]["mean"]
+            relaxation = statistics["relaxation_minutes"]["mean"]
+            insights.append(f"Average sleep duration {sleep_hours} hours with efficiency {efficiency}%.")
+            insights.append(f"Typical relaxation practice totals {relaxation} minutes daily alongside anxiety score {statistics['anxiety_score']['mean']}.")
+            if "sleep_buckets" in grouped_summary:
+                restorative = grouped_summary["sleep_buckets"].get("Restorative", {})
+                if restorative:
+                    insights.append(
+                        f"Restorative sleep aligns with quality {restorative.get('sleep_quality', 'N/A')} and anxiety {restorative.get('anxiety_score', 'N/A')} levels."
+                    )
+            for pair, value in correlations.items():
+                if abs(value) >= 0.35:
+                    insights.append(f"Observing correlation {pair}: {value}.")
+            return insights
+
+        # default HRV insights
         avg_hrv = statistics["hrv"]["mean"]
         insights.append(f"Average HRV across all records: {avg_hrv}")
-        
-        # Stress level insights
-        if "Low" in hrv_by_stress and "High" in hrv_by_stress:
-            low_hrv = hrv_by_stress["Low"]["average_hrv"]
-            high_hrv = hrv_by_stress["High"]["average_hrv"]
+        stress_summary = grouped_summary.get("hrv_by_stress_level", {})
+        if "Low" in stress_summary and "High" in stress_summary:
+            low_hrv = stress_summary["Low"].get("mean") or stress_summary["Low"].get("average_hrv")
+            high_hrv = stress_summary["High"].get("mean") or stress_summary["High"].get("average_hrv")
             insights.append(
-                f"Average HRV for Low stress ({low_hrv}) is "
-                f"{'higher' if low_hrv > high_hrv else 'lower'} than High stress ({high_hrv})"
+                f"Average HRV for Low stress ({low_hrv}) is {'higher' if low_hrv and high_hrv and low_hrv > high_hrv else 'lower'} than High stress ({high_hrv})."
             )
-        
-        # Correlation insights
-        hrv_stress_corr = correlations["hrv_vs_stress"]
-        if abs(hrv_stress_corr) > 0.3:
-            direction = "negative" if hrv_stress_corr < 0 else "positive"
-            insights.append(
-                f"Strong {direction} correlation ({hrv_stress_corr}) between HRV and stress score"
-            )
-        
-        # Data quality insights
+        for pair, value in correlations.items():
+            if "hrv" in pair and abs(value) > 0.3:
+                direction = "negative" if value < 0 else "positive"
+                insights.append(f"{pair.replace('_vs_', ' vs ')} shows a {direction} correlation of {value}.")
         total_records = statistics["hrv"]["count"]
-        insights.append(f"Analysis completed on {total_records} records")
-        
+        insights.append(f"Analysis completed on {total_records} records.")
         return insights
+
+    @staticmethod
+    def _describe_series(series: pd.Series) -> Dict[str, Any]:
+        return {
+            "count": int(series.count()),
+            "mean": round(float(series.mean()), 2),
+            "std": round(float(series.std()), 2),
+            "min": round(float(series.min()), 2),
+            "max": round(float(series.max()), 2),
+            "median": round(float(series.median()), 2),
+        }
 
     def _generate_mirror_layers(self, statistics: Dict[str, Any]) -> Dict[str, Any]:
         avg_hrv = statistics["hrv"]["mean"]

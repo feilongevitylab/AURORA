@@ -34,6 +34,7 @@ function ChatbotInput({ onResponse, onError, onLoading, compact = false, placeho
       
       const response = await axios.post(`${API_BASE_URL}/api/insight`, {
         query: trimmed,
+        raw_query: text,
         mode: currentMode,
         user_id: userProfile?.id || null,
         is_registered: isRegistered,

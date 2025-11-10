@@ -333,6 +333,19 @@ function TopNav() {
     window.open('mailto:care@aurorawellness.ai?subject=Reset%20my%20Aurora%20password', '_blank')
   }
 
+  const openScienceExploration = () => {
+    setAuthModalMode('science')
+    openAuthModal('science')
+  }
+
+  const callInsightApi = async ({ query, mode, data = {} }) => {
+    return axios.post(`${API_BASE_URL}/api/insight`, {
+      query,
+      mode,
+      data,
+    })
+  }
+
   return (
     <>
       <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center">

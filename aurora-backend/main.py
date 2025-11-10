@@ -76,9 +76,11 @@ class LoginRequest(BaseModel):
 class InsightRequest(BaseModel):
     """Request model for insight endpoint"""
     query: str
+    raw_query: Optional[str] = None
     mode: Optional[str] = None  # companion, status, science
     user_id: Optional[str] = None
     is_registered: Optional[bool] = False
+    data: Optional[Dict[str, Any]] = None
 
 
 class HRVDataPoint(BaseModel):
@@ -300,6 +302,9 @@ async def get_insight(request: InsightRequest, db: Session = Depends(get_db)):
         context: Dict[str, Any] = {
             "user_id": request.user_id,
             "is_registered": request.is_registered,
+            "raw_query": (request.raw_query or request.query),
+            "original_query": request.query,
+            "payload_data": request.data,
         }
 
         if request.mode:

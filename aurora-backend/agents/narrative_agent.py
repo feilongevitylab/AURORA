@@ -131,7 +131,9 @@ class NarrativeAgent:
                     correlations=correlations,
                     statistics=statistics,
                     insights=insights,
-                    mode=mode
+                    mode=mode,
+                    dataset=context.get("dataset") or data_summary.get("data_summary", {}).get("dataset"),
+                    raw_question=context.get("raw_query") or context.get("original_query")
                 )
                 
                 narrative = self._generate_narrative(
@@ -182,14 +184,37 @@ class NarrativeAgent:
             self.model_name = getattr(llm_client, "model_name", getattr(llm_client, "model", "OpenAI Chat"))
 
             data_str = self._format_data_summary(data_summary)
-            
-            # Create the prompt as specified
+
+            raw_question = context.get("raw_query") or context.get("original_query") or ""
+            dataset = context.get("dataset") or data_summary.get("data_summary", {}).get("dataset")
+
+            persona_base = "You are Aurora, an empathetic AI wellness guide who combines scientific insight with human warmth."
+            if mode == "science":
+                persona_base += " Respond as Aurora in a professional, evidence-based tone, citing physiological mechanisms when relevant."
+            elif mode == "companion":
+                persona_base += " Respond as Aurora in a gentle, encouraging tone that focuses on emotional support and actionable guidance."
+            elif mode == "mirror":
+                persona_base += " Respond as Aurora with reflective, narrative language that helps the user notice patterns in their wellbeing."
+
             system_message = SystemMessage(
-                content="You are a scientific AI assistant. Provide clear, evidence-based explanations about physiological data, particularly regarding heart rate variability (HRV) and stress relationships. Use scientific terminology appropriately and explain complex concepts in an accessible manner."
+                content=persona_base
             )
-            
+
+            prompt_lines = []
+            if raw_question:
+                prompt_lines.append(f"User question: {raw_question}")
+            if dataset == "science_cortisol_focus":
+                prompt_lines.append("The dataset reflects cortisol rhythms, cognitive performance, and sleep dynamics. Focus on how neuroendocrine factors relate to the user's question.")
+            elif dataset == "companion_sleep_relaxation":
+                prompt_lines.append("The dataset reflects restorative habits, sleep quality, and relaxation patterns. Use it to ground soothing, practical suggestions.")
+            else:
+                prompt_lines.append("The dataset reflects heart rate variability, stress load, and recovery capacity.")
+            prompt_lines.append("Use the following data summary as context when it is helpful:")
+            prompt_lines.append(data_str)
+            prompt_lines.append("Answer directly as Aurora, addressing the user's question first, then referencing the data when it strengthens the insight.")
+
             human_message = HumanMessage(
-                content=f"Explain how HRV relates to stress based on this data: {data_str}"
+                content="\n\n".join(prompt_lines)
             )
             
             # Call OpenAI API
@@ -211,7 +236,10 @@ class NarrativeAgent:
                 hrv_by_stress=hrv_by_stress,
                 correlations=correlations,
                 statistics=statistics,
-                insights=insights
+                insights=insights,
+                mode=mode,
+                dataset=context.get("dataset") or data_summary.get("data_summary", {}).get("dataset"),
+                raw_question=context.get("raw_query") or context.get("original_query")
             )
     
     def _format_data_summary(self, data_summary: Dict[str, Any]) -> str:
@@ -238,12 +266,30 @@ class NarrativeAgent:
             for metric, stats in data_summary["statistics"].items():
                 parts.append(f"  {metric}: mean={stats.get('mean', 'N/A')}, std={stats.get('std', 'N/A')}, min={stats.get('min', 'N/A')}, max={stats.get('max', 'N/A')}")
         
-        # HRV by stress level
-        if "hrv_by_stress_level" in data_summary:
-            parts.append("\nHRV by stress level:")
-            for level, data in data_summary["hrv_by_stress_level"].items():
-                parts.append(f"  {level}: average HRV={data.get('average_hrv', 'N/A')}, count={data.get('count', 'N/A')}")
-        
+        dataset = data_summary.get("data_summary", {}).get("dataset")
+
+        if dataset == "science_cortisol_focus":
+            focus_buckets = data_summary.get("focus_buckets", {})
+            if focus_buckets:
+                parts.append("\nFocus buckets (science dataset):")
+                for bucket, metrics in focus_buckets.items():
+                    parts.append(f"  {bucket}:")
+                    for metric, value in metrics.items():
+                        parts.append(f"    {metric}: {value}")
+        elif dataset == "companion_sleep_relaxation":
+            sleep_buckets = data_summary.get("sleep_buckets", {})
+            if sleep_buckets:
+                parts.append("\nSleep buckets (companion dataset):")
+                for bucket, metrics in sleep_buckets.items():
+                    parts.append(f"  {bucket}:")
+                    for metric, value in metrics.items():
+                        parts.append(f"    {metric}: {value}")
+        else:
+            if "hrv_by_stress_level" in data_summary:
+                parts.append("\nHRV by stress level:")
+                for level, data in data_summary["hrv_by_stress_level"].items():
+                    parts.append(f"  {level}: average HRV={data.get('average_hrv', data.get('mean', 'N/A'))}, count={data.get('count', 'N/A')}")
+
         # Correlations
         if "correlations" in data_summary:
             parts.append("\nCorrelations:")
@@ -264,7 +310,9 @@ class NarrativeAgent:
         correlations: Dict[str, float],
         statistics: Dict[str, Any],
         insights: list,
-        mode: Optional[str] = None
+        mode: Optional[str] = None,
+        dataset: Optional[str] = None,
+        raw_question: Optional[str] = None
     ) -> str:
         """
         Generate GPT-5-style explanation based on data patterns and mode.
@@ -277,32 +325,61 @@ class NarrativeAgent:
         """
         # Mode-specific tone adjustment
         if mode == "companion":
-            # Warm, supportive tone for companion mode
-            if hrv_by_stress and correlations:
-                hrv_stress_corr = correlations.get("hrv_vs_stress", 0)
-                if hrv_stress_corr < -0.3:
-                    explanation = (
-                        "我注意到你的心率变异性（HRV）与压力水平之间存在一定的关联。"
-                        "当压力较高时，HRV 往往会降低，这反映了自主神经系统的平衡状态。"
-                        "这并不意味着有什么问题，而是提醒我们关注自己的压力管理。"
-                        "记住，你的身体正在努力适应，给自己一些时间和空间来恢复是很重要的。"
-                        "如果你感到压力过大，不妨尝试一些放松技巧，比如深呼吸或轻度运动。"
+            tone_prefix = (
+                "I'm here with you. Let's explore how your body is responding together. "
+            )
+            explanation_parts = [tone_prefix]
+
+            if raw_question:
+                explanation_parts.append(
+                    f"You asked about “{raw_question}”. Here's what Aurora sees when integrating your latest data:"
+                )
+
+            if dataset == "science_cortisol_focus":
+                cortisol_stats = statistics.get("cortisol_morning", {})
+                focus_stats = statistics.get("focus_index", {})
+                explanation_parts.append(
+                    f"Morning cortisol averages {cortisol_stats.get('mean', 'N/A')} µg/dL while focus index trends near {focus_stats.get('mean', 'N/A')}."
+                )
+                if correlations:
+                    key_corr = max(correlations.items(), key=lambda item: abs(item[1]))
+                    explanation_parts.append(f"Notable correlation {key_corr[0].replace('_vs_', ' vs ')} at {key_corr[1]}, hinting at endocrine-cognitive links.")
+            elif dataset == "companion_sleep_relaxation":
+                sleep_stats = statistics.get("sleep_hours", {})
+                anxiety_stats = statistics.get("anxiety_score", {})
+                explanation_parts.append(
+                    f"You're averaging {sleep_stats.get('mean', 'N/A')} hours of sleep with anxiety hovering around {anxiety_stats.get('mean', 'N/A')} on our scale."
+                )
+                if correlations:
+                    key_corr = max(correlations.items(), key=lambda item: abs(item[1]))
+                    explanation_parts.append(f"I notice the strongest relationship appears between {key_corr[0].replace('_vs_', ' vs ')} at {key_corr[1]}.")
+            elif hrv_by_stress:
+                if insights:
+                    explanation_parts.append(insights[0])
+                hrv_stress_corr = correlations.get("hrv_vs_stress") if correlations else None
+                if hrv_stress_corr is not None:
+                    explanation_parts.append(
+                        "Heart rate variability tends to decrease with higher stress levels, "
+                        "reflecting autonomic imbalance. This inverse relationship indicates "
+                        "that elevated stress disrupts the parasympathetic nervous system's "
+                        "ability to maintain optimal HRV, which is a critical indicator of "
+                        "cardiovascular health and recovery capacity."
                     )
                 else:
                     explanation = (
-                        "从你的数据来看，你的生理指标整体保持在一个相对稳定的范围内。"
-                        "这是很好的迹象，说明你的身体有良好的适应能力。"
-                        "继续保持这种平衡很重要，同时也要记得关注自己的感受。"
-                        "如果你有任何担忧或想要讨论的话题，我随时在这里倾听。"
+                        "Heart rate variability tends to decrease with higher stress levels, "
+                        "reflecting autonomic imbalance. This pattern is consistent with established "
+                        "physiological principles where chronic stress activates the sympathetic nervous system, "
+                        "reducing the parasympathetic activity that supports optimal HRV."
                     )
             else:
                 explanation = (
-                    "我很高兴你愿意分享和探索自己的状态。"
-                    "每个人的身体和心理都是独特的，重要的是找到适合自己的节奏。"
-                    "如果你感到困惑或需要支持，请随时告诉我，我会尽力帮助你。"
-                    "记住，寻求帮助和理解自己都是成长的一部分。"
+                    "Heart rate variability tends to decrease with higher stress levels, "
+                    "reflecting autonomic imbalance. This pattern is consistent with established "
+                    "physiological principles where chronic stress activates the sympathetic nervous system, "
+                    "reducing the parasympathetic activity that supports optimal HRV."
                 )
-            return explanation
+            return " ".join(explanation_parts)
             
         elif mode == "science":
             # Professional, scientific tone for science mode

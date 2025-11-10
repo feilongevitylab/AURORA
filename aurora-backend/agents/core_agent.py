@@ -93,6 +93,8 @@ class AuroraCoreAgent:
         """
         query_lower = query.lower()
         context = context or {}
+        context.setdefault("raw_query", query)
+        context.setdefault("original_query", query)
         mode = context.get("mode")
         
         # Initialize result structure
@@ -104,7 +106,11 @@ class AuroraCoreAgent:
             if "data" not in result:
                 data_result = self.data_agent.run(query, context)
                 self._log_agent_execution(self.data_agent.name, data_result)
-                result["data"] = data_result.get("result", {})
+                result_data = data_result.get("result", {})
+                result["data"] = result_data
+                dataset_label = result_data.get("data_summary", {}).get("dataset")
+                if dataset_label:
+                    context["dataset"] = dataset_label
             
             narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
@@ -114,7 +120,11 @@ class AuroraCoreAgent:
             # Mirror mode: Combine layered data, visualization, and narrative
             data_result = self.data_agent.run(query, context)
             self._log_agent_execution(self.data_agent.name, data_result)
-            result["data"] = data_result.get("result", {})
+            result_data = data_result.get("result", {})
+            result["data"] = result_data
+            dataset_label = result_data.get("data_summary", {}).get("dataset")
+            if dataset_label:
+                context["dataset"] = dataset_label
             
             viz_result = self.viz_agent.run(query, result["data"])
             self._log_agent_execution(self.viz_agent.name, viz_result)
@@ -145,7 +155,11 @@ class AuroraCoreAgent:
             if "data" not in result:
                 data_result = self.data_agent.run(query, context)
                 self._log_agent_execution(self.data_agent.name, data_result)
-                result["data"] = data_result.get("result", {})
+                result_data = data_result.get("result", {})
+                result["data"] = result_data
+                dataset_label = result_data.get("data_summary", {}).get("dataset")
+                if dataset_label:
+                    context["dataset"] = dataset_label
             
             narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
             self._log_agent_execution(self.narrative_agent.name, narrative_result)
@@ -157,7 +171,11 @@ class AuroraCoreAgent:
             if "analyze" in query_lower:
                 data_result = self.data_agent.run(query, context)
                 self._log_agent_execution(self.data_agent.name, data_result)
-                result["data"] = data_result.get("result", {})
+                result_data = data_result.get("result", {})
+                result["data"] = result_data
+                dataset_label = result_data.get("data_summary", {}).get("dataset")
+                if dataset_label:
+                    context["dataset"] = dataset_label
             
             # 2. If query includes "visualize" → call VizAgent
             if "visualize" in query_lower:
@@ -165,7 +183,11 @@ class AuroraCoreAgent:
                 if "data" not in result:
                     data_result = self.data_agent.run(query, context)
                     self._log_agent_execution(self.data_agent.name, data_result)
-                    result["data"] = data_result.get("result", {})
+                    result_data = data_result.get("result", {})
+                    result["data"] = result_data
+                    dataset_label = result_data.get("data_summary", {}).get("dataset")
+                    if dataset_label:
+                        context["dataset"] = dataset_label
                 
                 viz_result = self.viz_agent.run(query, result.get("data"))
                 self._log_agent_execution(self.viz_agent.name, viz_result)
@@ -177,7 +199,11 @@ class AuroraCoreAgent:
                 if "data" not in result:
                     data_result = self.data_agent.run(query, context)
                     self._log_agent_execution(self.data_agent.name, data_result)
-                    result["data"] = data_result.get("result", {})
+                    result_data = data_result.get("result", {})
+                    result["data"] = result_data
+                    dataset_label = result_data.get("data_summary", {}).get("dataset")
+                    if dataset_label:
+                        context["dataset"] = dataset_label
                 
                 narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
                 self._log_agent_execution(self.narrative_agent.name, narrative_result)
@@ -189,7 +215,11 @@ class AuroraCoreAgent:
                 # Run all agents
                 data_result = self.data_agent.run(query, context)
                 self._log_agent_execution(self.data_agent.name, data_result)
-                result["data"] = data_result.get("result", {})
+                result_data = data_result.get("result", {})
+                result["data"] = result_data
+                dataset_label = result_data.get("data_summary", {}).get("dataset")
+                if dataset_label:
+                    context["dataset"] = dataset_label
                 
                 viz_result = self.viz_agent.run(query, result["data"])
                 self._log_agent_execution(self.viz_agent.name, viz_result)
