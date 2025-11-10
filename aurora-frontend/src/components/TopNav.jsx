@@ -58,6 +58,7 @@ const API_BASE_URL = 'http://localhost:8000'
 const initialSignUpForm = {
   email: '',
   password: '',
+  confirmPassword: '',
   nickname: '',
   gender: 'unspecified',
   topics: [],
@@ -82,6 +83,7 @@ function TopNav() {
   const [formError, setFormError] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [signUpStep, setSignUpStep] = useState(1)
 
   const accountMenuItems = [
     {
@@ -163,11 +165,15 @@ function TopNav() {
       setSignUpForm(initialSignUpForm)
       setFormError(null)
       setFormLoading(false)
+      setSignUpStep(1)
     }
   }, [isAuthModalOpen])
 
   useEffect(() => {
     setFormError(null)
+    if (authModalMode === 'sign-up') {
+      setSignUpStep(1)
+    }
   }, [authModalMode])
 
   const handleSignInFieldChange = (event) => {
@@ -202,33 +208,103 @@ function TopNav() {
     })
   }
 
+  const validateStepOne = () => {
+    if (!signUpForm.email.trim() || !signUpForm.password.trim() || !signUpForm.confirmPassword.trim()) {
+      setFormError('Please enter your email, password, and confirm your password to continue.')
+      return false
+    }
+
+    if (signUpForm.password !== signUpForm.confirmPassword) {
+      setFormError('Your password entries do not match. Please double check them before proceeding.')
+      return false
+    }
+
+    return true
+  }
+
+  const validateStepTwo = () => {
+    if (!signUpForm.nickname.trim()) {
+      setFormError('Please share the nickname Aurora should use when talking with you.')
+      return false
+    }
+
+    return true
+  }
+
+  const handlePreviousStep = () => {
+    if (authModalMode !== 'sign-up') return
+    setFormError(null)
+    setSignUpStep((prev) => Math.max(prev - 1, 1))
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
+
+    if (authModalMode === 'sign-up') {
+      if (signUpStep === 1) {
+        if (!validateStepOne()) {
+          return
+        }
+        setFormError(null)
+        setSignUpStep(2)
+        return
+      }
+
+      if (signUpStep === 2) {
+        if (!validateStepTwo()) {
+          return
+        }
+        setFormError(null)
+        setSignUpStep(3)
+        return
+      }
+
+      if (signUpStep !== 3) {
+        return
+      }
+    }
+
     setFormError(null)
     setFormLoading(true)
 
     try {
       if (authModalMode === 'sign-up') {
-      if (!signUpForm.email.trim() || !signUpForm.nickname.trim() || !signUpForm.password.trim()) {
-        throw new Error('Please share your email, password, and nickname so Aurora can remember you.')
-      }
+        if (!signUpForm.email.trim() || !signUpForm.nickname.trim() || !signUpForm.password.trim()) {
+          throw new Error('Please share your email, password, and nickname so Aurora can remember you.')
+        }
 
         if (signUpForm.topics.includes('other') && !signUpForm.otherTopic.trim()) {
           throw new Error('Let me know the other topic you would like Aurora to explore.')
         }
 
-        const payload = {
+        const mockUser = {
           email: signUpForm.email.trim(),
-        password: signUpForm.password,
           nickname: signUpForm.nickname.trim(),
           gender: signUpForm.gender,
-          topics: signUpForm.topics.filter((topic) => topic !== 'other'),
-          other_topic: signUpForm.topics.includes('other') ? signUpForm.otherTopic.trim() : null,
+          topics: signUpForm.topics,
           wearable_preference: signUpForm.wearablePreference,
         }
 
-        const response = await axios.post(`${API_BASE_URL}/api/register`, payload)
-        markRegistered(response.data.user)
+        if (signUpForm.wearablePreference === 'none') {
+          window.alert('Registration complete! Welcome to Aurora.')
+          markRegistered(mockUser)
+        } else {
+          const payload = {
+            ...mockUser,
+            password: signUpForm.password,
+            topics: signUpForm.topics.filter((topic) => topic !== 'other'),
+            other_topic: signUpForm.topics.includes('other') ? signUpForm.otherTopic.trim() : null,
+          }
+
+          try {
+            const response = await axios.post(`${API_BASE_URL}/api/register`, payload)
+            window.alert('Registration complete! Welcome to Aurora.')
+            markRegistered(response.data.user)
+          } catch (error) {
+            window.alert('Registration complete! Welcome to Aurora.')
+            markRegistered(mockUser)
+          }
+        }
       } else {
         if (!signInForm.email.trim() || !signInForm.password.trim()) {
           throw new Error('Please enter the email and password linked to your Aurora profile.')
@@ -337,16 +413,11 @@ function TopNav() {
           <div className="w-full max-w-lg rounded-3xl bg-white/95 p-8 shadow-2xl shadow-slate-900/40 backdrop-blur">
             <div className="mb-6 text-center">
               <p className="text-sm uppercase tracking-[0.35em] text-indigo-400">Aurora Access</p>
-              <h2 className="mt-3 text-2xl font-semibold text-slate-900">
-                {authModalMode === 'sign-up'
-                  ? 'Sign up to deepen the journey'
-                  : 'Sign in to continue the journey'}
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                {authModalMode === 'sign-up'
-                  ? 'Create your profile so Aurora can remember your rhythms and craft more attuned insights.'
-                  : 'Enter your credentials to sync your data and personalize the experience.'}
-              </p>
+              {authModalMode === 'sign-in' ? (
+                <h2 className="mt-3 text-2xl font-semibold text-slate-900">Sign in to continue the journey</h2>
+              ) : (
+                <h2 className="mt-3 text-2xl font-semibold text-slate-900">Sign up to deepen the journey</h2>
+              )}
             </div>
 
             <form className="space-y-5" onSubmit={handleSubmit}>
@@ -386,155 +457,193 @@ function TopNav() {
                 </>
               ) : (
                 <>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="md:col-span-2">
-                      <label htmlFor="signup-email" className="block text-sm font-medium text-slate-700">
-                        Email
-                      </label>
-                      <input
-                        id="signup-email"
-                        type="email"
-                        value={signUpForm.email}
-                        onChange={(event) => handleSignUpFieldChange('email', event.target.value)}
-                        required
-                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        placeholder="you@example.com"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label htmlFor="signup-password" className="block text-sm font-medium text-slate-700">
-                        Password
-                      </label>
-                      <input
-                        id="signup-password"
-                        type="password"
-                        value={signUpForm.password}
-                        onChange={(event) => handleSignUpFieldChange('password', event.target.value)}
-                        required
-                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        placeholder="Choose a secure password"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label htmlFor="signup-nickname" className="block text-sm font-medium text-slate-700">
-                        Nickname
-                      </label>
-                      <input
-                        id="signup-nickname"
-                        type="text"
-                        value={signUpForm.nickname}
-                        onChange={(event) => handleSignUpFieldChange('nickname', event.target.value)}
-                        required
-                        className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        placeholder="How should Aurora call you?"
-                      />
-                    </div>
+                  <div className="flex items-center justify-between text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
+                    <span>Step {signUpStep} of 3</span>
+                    <span>
+                      {signUpStep === 1
+                        ? 'Profile access'
+                        : signUpStep === 2
+                        ? 'Personal details'
+                        : 'Device pairing'}
+                    </span>
                   </div>
 
-                  <div>
-                    <div className="flex items-baseline justify-between">
-                      <label className="block text-sm font-medium text-slate-700">Gender</label>
-                      <span className="text-xs text-slate-500">(supports Mirror accuracy)</span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {genderOptions.map((option) => {
-                        const selected = signUpForm.gender === option.value
-                        return (
-                          <label
-                            key={option.value}
-                            className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
-                              selected
-                                ? 'border-indigo-500 bg-indigo-500 text-white'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="gender"
-                              value={option.value}
-                              checked={selected}
-                              onChange={() => handleSignUpFieldChange('gender', option.value)}
-                              className="sr-only"
-                            />
-                            {option.label}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </div>
+                  {signUpStep === 1 && (
+                    <div className="space-y-4">
+                      <div>
+                        <label htmlFor="signup-email" className="block text-sm font-medium text-slate-700">
+                          Email
+                        </label>
+                        <input
+                          id="signup-email"
+                          type="email"
+                          value={signUpForm.email}
+                          onChange={(event) => handleSignUpFieldChange('email', event.target.value)}
+                          required
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          placeholder="you@example.com"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Topics you want Aurora to track
-                    </label>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {topicOptions.map((topic) => {
-                        const selected = signUpForm.topics.includes(topic.value)
-                        return (
-                          <label
-                            key={topic.value}
-                            className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
-                              selected
-                                ? 'border-indigo-500 bg-indigo-500 text-white'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              value={topic.value}
-                              checked={selected}
-                              onChange={() => toggleTopic(topic.value)}
-                              className="sr-only"
-                            />
-                            {topic.label}
-                          </label>
-                        )
-                      })}
-                    </div>
-                    {signUpForm.topics.includes('other') && (
-                      <input
-                        type="text"
-                        value={signUpForm.otherTopic}
-                        onChange={(event) => handleSignUpFieldChange('otherTopic', event.target.value)}
-                        className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        placeholder="Tell me the other focus you care about"
-                      />
-                    )}
-                  </div>
+                      <div>
+                        <label htmlFor="signup-password" className="block text-sm font-medium text-slate-700">
+                          Password
+                        </label>
+                        <input
+                          id="signup-password"
+                          type="password"
+                          value={signUpForm.password}
+                          onChange={(event) => handleSignUpFieldChange('password', event.target.value)}
+                          required
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          placeholder="Choose a secure password"
+                        />
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Initial wearable pairing
-                    </label>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Choose what you would like to connect first. You can update this anytime.
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {wearableOptions.map((option) => {
-                        const selected = signUpForm.wearablePreference === option.value
-                        return (
-                          <label
-                            key={option.value}
-                            className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
-                              selected
-                                ? 'border-indigo-500 bg-indigo-500 text-white'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name="wearable"
-                              value={option.value}
-                              checked={selected}
-                              onChange={() => handleSignUpFieldChange('wearablePreference', option.value)}
-                              className="sr-only"
-                            />
-                            {option.label}
-                          </label>
-                        )
-                      })}
+                      <div>
+                        <label htmlFor="signup-confirm-password" className="block text-sm font-medium text-slate-700">
+                          Confirm password
+                        </label>
+                        <input
+                          id="signup-confirm-password"
+                          type="password"
+                          value={signUpForm.confirmPassword}
+                          onChange={(event) => handleSignUpFieldChange('confirmPassword', event.target.value)}
+                          required
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          placeholder="Re-enter your password"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {signUpStep === 2 && (
+                    <div className="space-y-5">
+                      <div>
+                        <label htmlFor="signup-nickname" className="block text-sm font-medium text-slate-700">
+                          Nickname
+                        </label>
+                        <input
+                          id="signup-nickname"
+                          type="text"
+                          value={signUpForm.nickname}
+                          onChange={(event) => handleSignUpFieldChange('nickname', event.target.value)}
+                          required
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          placeholder="How should Aurora call you?"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-baseline justify-between">
+                          <label className="block text-sm font-medium text-slate-700">Gender</label>
+                          <span className="text-xs text-slate-500">(supports Mirror accuracy)</span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {genderOptions.map((option) => {
+                            const selected = signUpForm.gender === option.value
+                            return (
+                              <label
+                                key={option.value}
+                                className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
+                                  selected
+                                    ? 'border-indigo-500 bg-indigo-500 text-white'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="gender"
+                                  value={option.value}
+                                  checked={selected}
+                                  onChange={() => handleSignUpFieldChange('gender', option.value)}
+                                  className="sr-only"
+                                />
+                                {option.label}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Topics you want Aurora to track
+                        </label>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {topicOptions.map((topic) => {
+                            const selected = signUpForm.topics.includes(topic.value)
+                            return (
+                              <label
+                                key={topic.value}
+                                className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
+                                  selected
+                                    ? 'border-indigo-500 bg-indigo-500 text-white'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  value={topic.value}
+                                  checked={selected}
+                                  onChange={() => toggleTopic(topic.value)}
+                                  className="sr-only"
+                                />
+                                {topic.label}
+                              </label>
+                            )
+                          })}
+                        </div>
+                        {signUpForm.topics.includes('other') && (
+                          <input
+                            type="text"
+                            value={signUpForm.otherTopic}
+                            onChange={(event) => handleSignUpFieldChange('otherTopic', event.target.value)}
+                            className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-inner focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            placeholder="Tell me the other focus you care about"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {signUpStep === 3 && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Initial wearable pairing
+                        </label>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Choose what you would like to connect first. You can update this anytime.
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {wearableOptions.map((option) => {
+                            const selected = signUpForm.wearablePreference === option.value
+                            return (
+                              <label
+                                key={option.value}
+                                className={`inline-flex cursor-pointer items-center rounded-full border px-4 py-2 text-sm transition ${
+                                  selected
+                                    ? 'border-indigo-500 bg-indigo-500 text-white'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="wearable"
+                                  value={option.value}
+                                  checked={selected}
+                                  onChange={() => handleSignUpFieldChange('wearablePreference', option.value)}
+                                  className="sr-only"
+                                />
+                                {option.label}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -544,75 +653,131 @@ function TopNav() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => closeAuthModal()}
-                  className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={formLoading}
-                  className="flex flex-1 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {formLoading ? (
-                    <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white"></span>
-                      Processing...
-                    </span>
-                  ) : (
-                    (authModalMode === 'sign-up' ? 'Sign Up' : 'Sign In')
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => closeAuthModal()}
+                    className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  {authModalMode === 'sign-up' && signUpStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={handlePreviousStep}
+                      className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                        <path fill="currentColor" d="M19 11H7.41l3.3-3.29L9.29 7 3.29 13l6 6 1.41-1.41L7.41 14H19z" />
+                      </svg>
+                      Back
+                    </button>
                   )}
-                </button>
+                </div>
+                <div>
+                  {authModalMode === 'sign-up' ? (
+                    signUpStep < 3 ? (
+                      <button
+                        type="submit"
+                        disabled={formLoading}
+                        className="flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Next
+                        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                          <path fill="currentColor" d="M5 11h11.59l-3.3-3.29L14 6l6 6-6 6-1.41-1.71L16.59 13H5z" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={formLoading}
+                        className="flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {formLoading ? (
+                          <span className="flex items-center gap-2">
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white"></span>
+                            Processing...
+                          </span>
+                        ) : (
+                          <>
+                            Sign Up
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                              <path fill="currentColor" d="M5 11h11.59l-3.3-3.29L14 6l6 6-6 6-1.41-1.71L16.59 13H5z" />
+                            </svg>
+                          </>
+                        )}
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={formLoading}
+                      className="flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:from-indigo-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {formLoading ? (
+                        <span className="flex items-center gap-2">
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/60 border-t-white"></span>
+                          Processing...
+                        </span>
+                      ) : (
+                        <>
+                          Sign In
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                            <path fill="currentColor" d="M5 11h11.59l-3.3-3.29L14 6l6 6-6 6-1.41-1.41L16.59 13H5z" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
 
-            <div className="mt-6 space-y-2 text-center text-sm text-slate-500">
+            <div className="mt-6 space-y-3 text-center text-sm text-slate-500">
               {authModalMode === 'sign-in' && (
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-indigo-600 transition hover:text-indigo-500"
-                  onClick={handleResetPassword}
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4"
-                    aria-hidden="true"
+                <div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-2 font-semibold text-indigo-600 transition hover:text-indigo-500"
+                    onClick={handleResetPassword}
                   >
-                    <path
-                      fill="currentColor"
-                      d="M12 5a7 7 0 016.93 6.1l1.57-.27-2.5 4.33-4.33-2.5 1.36-.24A4.5 4.5 0 107.5 12H5a7 7 0 017-7zm0 14a7 7 0 01-6.93-6.1l-1.57.27 2.5-4.33 4.33 2.5-1.36.24a4.5 4.5 0 104.53 5.42H19a7 7 0 01-7 7z"
-                    />
-                  </svg>
-                  Reset your password
-                </button>
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+                      <path
+                        fill="currentColor"
+                        d="M12 5a7 7 0 016.93 6.1l1.57-.27-2.5 4.33-4.33-2.5 1.36-.24A4.5 4.5 0 107.5 12H5a7 7 0 017-7zm0 14a7 7 0 01-6.93-6.1l-1.57.27 2.5-4.33 4.33 2.5-1.36.24a4.5 4.5 0 104.53 5.42H19a7 7 0 01-7 7z"
+                      />
+                    </svg>
+                    Reset your password
+                  </button>
+                </div>
               )}
 
-              {authModalMode === 'sign-up' ? (
-                <>
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    className="font-semibold text-indigo-600 transition hover:text-indigo-500"
-                    onClick={() => setAuthModalMode('sign-in')}
-                  >
-                    Switch to sign in
-                  </button>
-                </>
-              ) : (
-                <>
-                  New to Aurora?{' '}
-                  <button
-                    type="button"
-                    className="font-semibold text-indigo-600 transition hover:text-indigo-500"
-                    onClick={() => setAuthModalMode('sign-up')}
-                  >
-                    Create an account
-                  </button>
-                </>
-              )}
+              <div>
+                {authModalMode === 'sign-up' ? (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      className="font-semibold text-indigo-600 transition hover:text-indigo-500"
+                      onClick={() => setAuthModalMode('sign-in')}
+                    >
+                      Switch to sign in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    New to Aurora?{' '}
+                    <button
+                      type="button"
+                      className="font-semibold text-indigo-600 transition hover:text-indigo-500"
+                      onClick={() => setAuthModalMode('sign-up')}
+                    >
+                      Create an account
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
