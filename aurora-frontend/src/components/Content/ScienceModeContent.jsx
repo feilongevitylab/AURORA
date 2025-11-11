@@ -69,8 +69,8 @@ function ScienceModeContent({ data }) {
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4">{modeConfig.icon}</div>
-        <p className="text-gray-600 text-lg">In Science Exploration Mode I can unpack technical terms and scientific concepts.</p>
-        <p className="text-gray-500 text-sm mt-2">Ask about emerging research, precise definitions, or physiological principles.</p>
+        <p className="text-gray-600 text-lg">In Longevity Exploration I decode biomarkers, recovery trends, and adaptive strategies.</p>
+        <p className="text-gray-500 text-sm mt-2">Ask about emerging research, precise definitions, or how physiology drives sustainable performance.</p>
       </div>
     )
   }
@@ -80,7 +80,7 @@ function ScienceModeContent({ data }) {
       {!isRegistered && (
         <div className="mb-6 rounded-2xl border border-cyan-200 bg-cyan-50/90 p-6 text-left shadow-sm shadow-cyan-200/60">
           <p className="text-sm leading-relaxed text-cyan-900/90">
-            I can unpack the science for you right away. To tailor future analyses to your physiology and interests, please{' '}
+            I can dive into longevity analytics right away. To tailor future analyses to your physiology and interests, please{' '}
             <SignUpLink>Sign Up</SignUpLink>. Becoming a member helps Aurora connect the data dots uniquely for you.
           </p>
         </div>
@@ -90,7 +90,7 @@ function ScienceModeContent({ data }) {
           <div className="flex items-start gap-4">
             <div className="text-4xl flex-shrink-0">{modeConfig.icon}</div>
             <div className="flex-1">
-              <h3 className="text-xl font-semibold text-gray-800 mb-3">Scientific Explanation</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-3">Longevity Insight</h3>
               <div className="prose prose-lg max-w-none">
                 <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                   {data.insight}
@@ -178,7 +178,7 @@ function ScienceModeContent({ data }) {
         <div className="mt-6 rounded-2xl border border-cyan-100 bg-cyan-50/70 p-6 shadow-inner">
           <h4 className="text-lg font-semibold text-cyan-900 mb-4 flex items-center gap-2">
             <span>🧪</span>
-            Science Mode Metrics
+            Longevity Metrics
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {metadataMetrics.map(({ label, value }) => {

@@ -272,9 +272,9 @@ result = agent.run("analyze HRV by stress level")
   - `status`: 处理状态
 - `success`: 操作是否成功
 
-#### Mirror 模式附加字段
+#### Energy Insight 模式附加字段
 
-当 `context.mode === "mirror"` 时，`result` 中还会包含：
+当 `context.mode === "energy"` 时，`result` 中还会包含：
 
 ```json
 {
@@ -310,7 +310,7 @@ result = agent.run("analyze HRV by stress level")
 字段说明：
 
 - `coordination_score`：身体-心理-意义的综合协同指数（0-100）。
-- `insight_summary`：Mirror 模式的一句话洞察。
+- `insight_summary`：Energy Insight 模式的一句话洞察。
 - `mirror_layers`：三层视图（Physiology / Mind / Meaning），每层包含主要指标与说明。
 - `mirror_trend`：近 7 日 HRV / Stress / Focus 趋势数据，供 VizAgent 生成折线图。
 - `energy_pattern`：AI 生成的 narrative 描述，用于 Energy Pattern 区域。
@@ -395,13 +395,13 @@ result = agent.run("visualize stress levels over time", data=data_dict)
 **字段说明：**
 - `agent`: Agent名称
 - `result`: 可视化结果
-  - `chart_type`: 图表类型（Mirror 模式下为 `mirror_trend`，默认 `scatter`）
+  - `chart_type`: 图表类型（Energy Insight 模式下为 `mirror_trend`，默认 `scatter`）
   - `plotly_json`: Plotly `Figure.to_json()` 解析后的对象，包含 `data`、`layout`、`config`
   - `recommendations`: 推荐配置列表
   - `timestamp`: 生成时间戳
 - `success`: 操作是否成功
 
-Mirror 模式下，当 `data` 中带有 `mirror_trend` 时，VizAgent 会生成包含 HRV / Stress / Focus 三条折线的趋势图；否则回退到默认的 HRV vs Stress 散点图。
+Energy Insight 模式下，当 `data` 中带有 `mirror_trend` 时，VizAgent 会生成包含 HRV / Stress / Focus 三条折线的趋势图；否则回退到默认的 HRV vs Stress 散点图。
 
 ---
 
@@ -460,7 +460,7 @@ result = agent.run("explain the HRV analysis", data=data_dict, insights=insights
 - `model`: 使用的模型（OpenAI or 模拟）
 - `data_analyzed`: 参与分析的记录数与指标列表
 - `key_insights`: 关键洞察列表（最多5条）
-- `mirror_story`: Mirror 模式专属输出，包含 `summary`、`energy_pattern`、`top_dialog` 等字段
+- `mirror_story`: Energy Insight 模式专属输出，包含 `summary`、`energy_pattern`、`top_dialog` 等字段
  - `timestamp`: 生成时间戳
 
 ---
@@ -512,7 +512,7 @@ result = agent.run("analyze and visualize my HRV data", query_type="combined")
 }
 ```
 
-**返回结构（Mirror 模式示例）：**
+**返回结构（Energy Insight 模式示例）：**
 ```json
 {
   "insight": "你正在保持专注，但恢复速度略低于平均。",
@@ -539,12 +539,12 @@ result = agent.run("analyze and visualize my HRV data", query_type="combined")
 }
 ```
 
-**Mirror 模式字段说明补充：**
+**Energy Insight 模式字段说明补充：**
 - `hero`: Hero 输入区的动态文案配置。
 - `data.mirror_layers`: 三层视图结构，供前端展示 Physiology/Mind/Meaning 指标。
 - `data.mirror_trend`: HRV / Stress / Focus 趋势数据，供 VizAgent 渲染折线图。
 - `data.energy_pattern`: NarrativeAgent 生成的情绪化长文案。
-- `chart.chart_type`: Mirror 模式下为 `mirror_trend`。
+- `chart.chart_type`: Energy Insight 模式下为 `mirror_trend`。
 
 **字段说明：**
 - `agent`: Agent名称

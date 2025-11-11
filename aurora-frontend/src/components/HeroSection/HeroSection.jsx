@@ -7,17 +7,13 @@ import AuroraLogo from './AuroraLogo'
 import { useEffect, useMemo, useState } from 'react'
 
 const DEFAULT_PROMPTS = {
-  [MODES.COMPANION]: {
-    placeholder: 'I‘m Aurora, tell me what is on your heart today.',
-    quickPrompts: ['Ground me gently', 'I feel lonely today', 'Help me process today'],
-  },
   [MODES.MIRROR]: {
-    placeholder: 'What would you like to reflect on?',
-    quickPrompts: ["How was the sleep last night?", "Feeling steady", "Show today's reflection"],
+    placeholder: 'Ask me how your energy is shifting across body and mind today.',
+    quickPrompts: ["Show today's energy pulse", 'Where am I overextending?', 'Stress vs focus trend?'],
   },
   [MODES.SCIENCE]: {
-    placeholder: 'In Science Exploration Mode, ask me about physiology or psychology.',
-    quickPrompts: ['HRV vs stress?', 'Sleep recovery tips?', 'Cortisol and focus?'],
+    placeholder: 'In Longevity Exploration, ask about biomarkers, recovery, or adaptive strategies.',
+    quickPrompts: ['Why does HRV dip under pressure?', 'Cortisol and focus?', 'What strengthens longevity systems?'],
   },
 }
 
@@ -35,7 +31,7 @@ function HeroSection({ onResponse, onLoading, onError, hasSubmitted, responseDat
   }, [])
 
   useEffect(() => {
-    const defaults = DEFAULT_PROMPTS[currentMode] || DEFAULT_PROMPTS[MODES.COMPANION]
+    const defaults = DEFAULT_PROMPTS[currentMode] || DEFAULT_PROMPTS[MODES.MIRROR]
 
     if (currentMode === MODES.MIRROR) {
       if (!isRegistered) {
@@ -85,11 +81,11 @@ function HeroSection({ onResponse, onLoading, onError, hasSubmitted, responseDat
         )}
         
         {/* Subtitle - Hidden when hasSubmitted */}
-        {!hasSubmitted && (
-          <p className="text-xl md:text-2xl text-white/90 mb-8 drop-shadow-md transition-opacity duration-500">
-            {modeConfig.description}
-          </p>
-        )}
+    {!hasSubmitted && (
+      <p className="text-xl md:text-2xl text-white/90 mb-8 drop-shadow-md transition-opacity duration-500">
+        Energize with Intelligence. Longevity by Design.
+      </p>
+    )}
         
         {/* Mode Switch */}
         <div className={hasSubmitted ? 'mt-4' : ''}>

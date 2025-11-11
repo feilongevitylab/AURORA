@@ -455,7 +455,7 @@ function Dashboard() {
                 <div className="mt-6 pt-4 border-t border-gray-200">
                   <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
                     <span className="mr-1">🧪</span>
-                    Science Mode Metrics
+                    Longevity Metrics
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {metadataMetrics.map(({ label, value }) => {

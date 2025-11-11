@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ModeProvider, useMode, MODES } from './contexts/ModeContext'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import TopNav from './components/TopNav'
 import HeroSection from './components/HeroSection/HeroSection'
 import ContentArea from './components/Content/ContentArea'
+import LandingPage from './components/LandingPage'
 
 const createEmptyState = () =>
   Object.values(MODES).reduce((acc, mode) => {
@@ -13,10 +14,16 @@ const createEmptyState = () =>
 
 function AppContent() {
   const { currentMode } = useMode()
+  const { isRegistered } = useAuth()
   const [responses, setResponses] = useState(() => createEmptyState())
   const [errors, setErrors] = useState(() => createEmptyState())
   const [loadingMode, setLoadingMode] = useState(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [showLanding, setShowLanding] = useState(!isRegistered)
+
+  useEffect(() => {
+    setShowLanding(!isRegistered)
+  }, [isRegistered])
 
   const handleResponse = (mode, data) => {
     setResponses((prev) => ({ ...prev, [mode]: data }))
@@ -45,32 +52,38 @@ function AppContent() {
   const currentError = errors[currentMode] || null
   const isLoading = loadingMode === currentMode
 
+  if (showLanding) {
+    return (
+      <>
+        <TopNav isLanding />
+        <LandingPage />
+      </>
+    )
+  }
+
   return (
     <div className="relative min-h-screen">
       <TopNav />
 
-      <HeroSection 
+      <HeroSection
         onResponse={handleResponse}
         onLoading={handleLoading}
         onError={handleError}
         hasSubmitted={hasSubmitted}
         responseData={currentResponse}
       />
-      
-      {/* Content Area - Below Hero Section */}
-      <div
-        className={`
-          relative z-10 bg-white min-h-screen px-4
-          transition-all duration-700 ease-in-out
-          ${hasSubmitted ? 'py-8' : 'py-16'}
-        `}
-      >
-        <ContentArea 
-          data={currentResponse}
-          loading={isLoading}
-          error={currentError}
-        />
-      </div>
+
+      {hasSubmitted && (
+        <div
+          className={`
+            relative z-10 bg-white min-h-screen px-4
+            transition-all duration-700 ease-in-out
+            py-8
+          `}
+        >
+          <ContentArea data={currentResponse} loading={isLoading} error={currentError} />
+        </div>
+      )}
     </div>
   )
 }

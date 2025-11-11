@@ -77,7 +77,7 @@ class InsightRequest(BaseModel):
     """Request model for insight endpoint"""
     query: str
     raw_query: Optional[str] = None
-    mode: Optional[str] = None  # companion, status, science
+    mode: Optional[str] = None  # energy, longevity
     user_id: Optional[str] = None
     is_registered: Optional[bool] = False
     data: Optional[Dict[str, Any]] = None
@@ -310,10 +310,9 @@ async def get_insight(request: InsightRequest, db: Session = Depends(get_db)):
         if request.mode:
             context.update({
                 "mode": request.mode,
-                "tone": "warm" if request.mode == "companion" else "professional" if request.mode == "science" else "analytical",
-                "supportive": request.mode == "companion",
-                "include_topology": request.mode == "status",
-                "include_references": request.mode == "science",
+                "tone": "professional" if request.mode == "longevity" else "analytical",
+                "supportive": False,
+                "include_references": request.mode == "longevity",
             })
 
         if request.user_id:

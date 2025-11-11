@@ -10,7 +10,6 @@ import os
 
 from data.mock_datasets import (
     load_base_hrv_df,
-    load_companion_sleep_relaxation_df,
     load_science_cortisol_focus_df,
     load_science_hrv_stress_df,
 )
@@ -36,7 +35,6 @@ class DataAgent:
         self.df = None
         self._load_data()
         self.mock_science_df = None
-        self.mock_companion_df = None
         self.mock_hrv_stress_df = None
     
     def _load_data(self) -> pd.DataFrame:
@@ -55,23 +53,17 @@ class DataAgent:
         
         return self.df
 
-    def _load_science_mock_data(self) -> pd.DataFrame:
-        if self.mock_science_df is not None:
-            return self.mock_science_df
+    def _load_longevity_mock_data(self) -> pd.DataFrame:
+        if self.mock_longevity_df is not None:
+            return self.mock_longevity_df
 
-        self.mock_science_df = load_science_cortisol_focus_df()
-        return self.mock_science_df.copy()
-
-    def _load_companion_mock_data(self) -> pd.DataFrame:
-        if self.mock_companion_df is not None:
-            return self.mock_companion_df
-        self.mock_companion_df = load_companion_sleep_relaxation_df()
-        return self.mock_companion_df.copy()
+        self.mock_longevity_df = load_longevity_cortisol_focus_df()
+        return self.mock_longevity_df.copy()
 
     def _load_hrv_stress_mock_data(self) -> pd.DataFrame:
         if self.mock_hrv_stress_df is not None:
             return self.mock_hrv_stress_df.copy()
-        self.mock_hrv_stress_df = load_science_hrv_stress_df()
+        self.mock_hrv_stress_df = load_longevity_hrv_stress_df()
         return self.mock_hrv_stress_df.copy()
     
     def _generate_mock_hrv_data(self) -> pd.DataFrame:
@@ -100,20 +92,17 @@ class DataAgent:
         query_lower = query.lower()
 
         dataset_label = "hrv"
-        if mode == "science":
+        if mode == "longevity":
             cortisol_keywords = ["cortisol", "focus", "glucose", "neuro", "luteal", "hormone", "cognitive"]
             if any(keyword in query_lower for keyword in cortisol_keywords):
-                df = self._load_science_mock_data()
-                dataset_label = "science_cortisol_focus"
+                df = self._load_longevity_mock_data()
+                dataset_label = "longevity_cortisol_focus"
             elif ("hrv" in query_lower or "heart rate variability" in query_lower) and "stress" in query_lower:
                 df = self._load_hrv_stress_mock_data()
-                dataset_label = "science_hrv_stress"
+                dataset_label = "longevity_hrv_stress"
             else:
-                df = self._load_science_mock_data()
-                dataset_label = "science_cortisol_focus"
-        elif mode == "companion" and any(keyword in query_lower for keyword in ["sleep", "relax", "anxiety", "stress management", "breathing", "mindful"]):
-            df = self._load_companion_mock_data()
-            dataset_label = "companion_sleep_relaxation"
+                df = self._load_longevity_mock_data()
+                dataset_label = "longevity_cortisol_focus"
         else:
             if self.df is None:
                 self._load_data()
@@ -143,7 +132,7 @@ class DataAgent:
             "status": "processed",
         }
 
-        if mode == "mirror" and dataset_label == "hrv":
+        if mode == "energy" and dataset_label == "hrv":
             mirror_layers = self._generate_mirror_layers(statistics)
             mirror_trend = self._generate_mirror_trend()
             mirror_summary = self._generate_mirror_summary(statistics, correlations)
@@ -174,7 +163,7 @@ class DataAgent:
         }
     
     def _calculate_statistics(self, df: pd.DataFrame, dataset_label: str) -> Dict[str, Any]:
-        if dataset_label == "science_cortisol_focus":
+        if dataset_label == "longevity_cortisol_focus":
             return {
                 "cortisol_morning": self._describe_series(df["cortisol_morning"]),
                 "cortisol_evening": self._describe_series(df["cortisol_evening"]),
@@ -183,7 +172,7 @@ class DataAgent:
                 "reaction_time_ms": self._describe_series(df["reaction_time_ms"]),
                 "sleep_duration": self._describe_series(df["sleep_duration"]),
             }
-        if dataset_label == "science_hrv_stress":
+        if dataset_label == "longevity_hrv_stress":
             return {
                 "hrv": self._describe_series(df["hrv"]),
                 "stress_score": self._describe_series(df["stress_score"]),
@@ -191,15 +180,6 @@ class DataAgent:
                 "breathing_rate": self._describe_series(df["breathing_rate"]),
                 "sleep_quality": self._describe_series(df["sleep_quality"]),
                 "hrv_delta_from_baseline": self._describe_series(df["hrv_delta_from_baseline"]),
-            }
-        if dataset_label == "companion_sleep_relaxation":
-            return {
-                "sleep_hours": self._describe_series(df["sleep_hours"]),
-                "sleep_quality": self._describe_series(df["sleep_quality"]),
-                "sleep_efficiency": self._describe_series(df["sleep_efficiency"]),
-                "anxiety_score": self._describe_series(df["anxiety_score"]),
-                "relaxation_minutes": self._describe_series(df["relaxation_minutes"]),
-                "relaxation_index": self._describe_series(df["relaxation_index"]),
             }
         # default HRV dataset
         return {
@@ -209,7 +189,7 @@ class DataAgent:
         }
  
     def _calculate_groupings(self, df: pd.DataFrame, dataset_label: str) -> Dict[str, Any]:
-        if dataset_label == "science_cortisol_focus":
+        if dataset_label == "longevity_cortisol_focus":
             focus_bins = pd.cut(df["focus_index"], bins=[0, 70, 80, 100], labels=["Underloaded", "Optimal", "Peak"], include_lowest=True)
             grouped = df.groupby(focus_bins).agg({
                 "cortisol_morning": "mean",
@@ -221,7 +201,7 @@ class DataAgent:
             return {
                 "focus_buckets": grouped.to_dict(orient="index"),
             }
-        if dataset_label == "science_hrv_stress":
+        if dataset_label == "longevity_hrv_stress":
             stress_bucket_summary = (
                 df.groupby("stress_bucket")
                 .agg(
@@ -273,19 +253,6 @@ class DataAgent:
                 "day_summary": day_summary,
             }
 
-        if dataset_label == "companion_sleep_relaxation":
-            sleep_bins = pd.cut(df["sleep_hours"], bins=[0, 6, 7.5, 10], labels=["Low", "Adequate", "Restorative"], include_lowest=True)
-            grouped = df.groupby(sleep_bins).agg({
-                "sleep_quality": "mean",
-                "sleep_efficiency": "mean",
-                "anxiety_score": "mean",
-                "relaxation_minutes": "mean"
-            }).round(1)
-
-            return {
-                "sleep_buckets": grouped.to_dict(orient="index"),
-            }
-
         # default HRV grouping
         def categorize_stress(score):
             if score < 20:
@@ -318,9 +285,9 @@ class DataAgent:
         }
 
     def _calculate_correlations(self, df: pd.DataFrame, dataset_label: str) -> Dict[str, float]:
-        if dataset_label == "science_cortisol_focus":
+        if dataset_label == "longevity_cortisol_focus":
             numeric_cols = ["cortisol_morning", "cortisol_evening", "cortisol_ratio", "focus_index", "reaction_time_ms", "sleep_duration"]
-        elif dataset_label == "science_hrv_stress":
+        elif dataset_label == "longevity_hrv_stress":
             numeric_cols = [
                 "hrv",
                 "stress_score",
@@ -329,8 +296,6 @@ class DataAgent:
                 "sleep_quality",
                 "hrv_delta_from_baseline",
             ]
-        elif dataset_label == "companion_sleep_relaxation":
-            numeric_cols = ["sleep_hours", "sleep_quality", "sleep_efficiency", "anxiety_score", "relaxation_minutes", "relaxation_index"]
         else:
             numeric_cols = ["hrv", "stress_score", "age"]
 
@@ -345,7 +310,7 @@ class DataAgent:
     def _generate_insights(self, statistics: Dict, grouped_summary: Dict, correlations: Dict, dataset_label: str) -> List[str]:
         insights = []
 
-        if dataset_label == "science_cortisol_focus":
+        if dataset_label == "longevity_cortisol_focus":
             morning = statistics["cortisol_morning"]["mean"]
             evening = statistics["cortisol_evening"]["mean"]
             ratio = statistics["cortisol_ratio"]["mean"]
@@ -364,23 +329,7 @@ class DataAgent:
                     insights.append(f"Notable correlation {pair}: {value}.")
             return insights
 
-        if dataset_label == "companion_sleep_relaxation":
-            sleep_hours = statistics["sleep_hours"]["mean"]
-            efficiency = statistics["sleep_efficiency"]["mean"]
-            relaxation = statistics["relaxation_minutes"]["mean"]
-            insights.append(f"Average sleep duration {sleep_hours} hours with efficiency {efficiency}%.")
-            insights.append(f"Typical relaxation practice totals {relaxation} minutes daily alongside anxiety score {statistics['anxiety_score']['mean']}.")
-            if "sleep_buckets" in grouped_summary:
-                restorative = grouped_summary["sleep_buckets"].get("Restorative", {})
-                if restorative:
-                    insights.append(
-                        f"Restorative sleep aligns with quality {restorative.get('sleep_quality', 'N/A')} and anxiety {restorative.get('anxiety_score', 'N/A')} levels."
-                    )
-            for pair, value in correlations.items():
-                if abs(value) >= 0.35:
-                    insights.append(f"Observing correlation {pair}: {value}.")
-            return insights
-        if dataset_label == "science_hrv_stress":
+        if dataset_label == "longevity_hrv_stress":
             corr_value = correlations.get("hrv_vs_stress_score")
             if corr_value is not None:
                 insights.append(
@@ -441,7 +390,8 @@ class DataAgent:
         grouped_summary: Dict[str, Any],
         correlations: Dict[str, float],
     ) -> Dict[str, Any]:
-        if dataset_label == "science_hrv_stress":
+        if dataset_label == "longevity_hrv_stress":
+        if dataset_label == "longevity_hrv_stress":
             corr_value = correlations.get("hrv_vs_stress_score")
             stress_views = [
                 {

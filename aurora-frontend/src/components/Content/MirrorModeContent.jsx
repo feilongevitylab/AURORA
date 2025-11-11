@@ -71,7 +71,7 @@ function MirrorModeContent({ data }) {
           </p>
         </section>
         <p className="text-sm text-indigo-600/80">
-          I will still answer gentle questions, yet personalized Mirror insights bloom once Aurora recognizes you.
+          I will still answer gentle questions, yet personalized Energy insights bloom once Aurora recognizes you.
         </p>
       </div>
     )
@@ -96,7 +96,7 @@ function MirrorModeContent({ data }) {
     mirrorMeta?.top_dialog ||
     'Good day, traveler. Your system is waking in a gentle cadence - let us trace the waves of body and mind together.'
 
-  const mirrorSummary =
+  const energySummary =
     mirrorMeta?.mirror_summary ||
     'Your purpose alignment is strongly correlated with recovery, suggesting meaning is sustaining your nervous balance.'
 
@@ -107,7 +107,7 @@ function MirrorModeContent({ data }) {
       <div className="py-16 text-center">
         <div className="mb-4 text-6xl">{modeConfig.icon}</div>
         <p className="text-lg text-gray-600">
-          Mirror Mode is waiting for your invitation. Ask for "today's mirror" or share how your body and mind feel.
+          Energy Insight is waiting for your invitation. Ask for today's pulse or share how your body and mind feel.
         </p>
         <p className="mt-2 text-sm text-gray-500">
           When you are ready, I will surface the links across physiology, mind, and meaning to map your awareness topology.
@@ -117,39 +117,39 @@ function MirrorModeContent({ data }) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <section className="rounded-3xl border border-white/20 bg-gradient-to-r from-indigo-600/80 via-blue-500/70 to-sky-500/60 p-8 text-left shadow-2xl shadow-indigo-900/20 backdrop-blur">
+    <div className="mx-auto max-w-7xl space-y-10 px-6 py-16 bg-white text-gray-900">
+      <section className="rounded-3xl border border-indigo-100 bg-white p-8 shadow-xl shadow-indigo-100/70">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <p className="text-sm uppercase tracking-[0.4em] text-white/70">{modeConfig.nameEn}</p>
-            <h2 className="mt-2 text-3xl font-semibold leading-relaxed text-white">{topDialog}</h2>
+            <p className="text-sm uppercase tracking-[0.4em] text-indigo-500/70">{modeConfig.nameEn}</p>
+            <h2 className="mt-3 text-3xl font-semibold leading-relaxed text-gray-900">{topDialog}</h2>
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-white">
-            <span className="text-sm uppercase tracking-[0.3em]">Mirror</span>
+          <div className="flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-4 py-2 text-indigo-700">
+            <span className="text-sm uppercase tracking-[0.3em]">Energy</span>
             <span className="text-lg">{modeConfig.icon}</span>
           </div>
         </div>
       </section>
 
       <section className="grid gap-6 md:grid-cols-[1fr_2fr]">
-        <div className="rounded-3xl border border-indigo-200 bg-white/80 p-6 shadow-md shadow-indigo-200/50">
-          <p className="text-sm uppercase tracking-[0.3em] text-indigo-500">Today's Coordination Index</p>
+        <div className="rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 shadow-xl shadow-slate-900/50 text-white">
+          <p className="text-sm uppercase tracking-[0.3em] text-sky-200/80">Today's Coordination Index</p>
           <div className="mt-4 flex items-baseline gap-4">
-            <span className="text-5xl font-bold text-indigo-600">{coordinationScore}%</span>
-            <span className="text-indigo-500/80">Body × Mind × Meaning</span>
+            <span className="text-5xl font-bold text-sky-200">{coordinationScore}%</span>
+            <span className="text-sky-200/80">Body × Mind × Meaning</span>
           </div>
-          <p className="mt-4 text-base text-indigo-900">{mirrorSummary}</p>
+          <p className="mt-4 text-base text-slate-100/90">{energySummary}</p>
         </div>
 
-        <div className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-md shadow-indigo-200/40">
-          <p className="text-sm uppercase tracking-[0.3em] text-indigo-500">Today's Insight</p>
-          <p className="mt-4 text-lg font-medium text-indigo-900">{shortInsight}</p>
+        <div className="rounded-3xl border border-sky-100 bg-gradient-to-br from-white via-sky-50 to-indigo-100/60 p-6 shadow-lg shadow-sky-200/60">
+          <p className="text-sm uppercase tracking-[0.3em] text-indigo-500/70">Today's Insight</p>
+          <p className="mt-4 text-lg font-medium text-gray-800">{shortInsight}</p>
           {quickInsights.length > 0 && (
             <ul className="mt-6 grid gap-3 md:grid-cols-2">
               {quickInsights.slice(0, 4).map((insight, index) => (
                 <li
                   key={`${insight}-${index}`}
-                  className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-800"
+                  className="rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 text-sm text-gray-700 shadow-sm"
                 >
                   {insight}
                 </li>
@@ -166,10 +166,10 @@ function MirrorModeContent({ data }) {
       </section>
 
       {mirrorData?.chart && mirrorData.chart.data?.length > 0 && (
-        <section className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-lg shadow-indigo-200/40">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-2xl font-semibold text-indigo-900">HRV · Stress · Focus Trend</h3>
-            <span className="text-sm text-indigo-600/80">Past 7 days · refreshed hourly</span>
+        <section className="rounded-3xl border border-indigo-100 bg-white p-6 shadow-xl shadow-indigo-100/60">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-gray-800">
+            <h3 className="text-2xl font-semibold">HRV · Stress · Focus Trend</h3>
+            <span className="text-sm text-indigo-500/70">Past 7 days · refreshed hourly</span>
           </div>
           <div className="mt-6 h-[460px] w-full">
             <Plot
@@ -179,6 +179,9 @@ function MirrorModeContent({ data }) {
                 autosize: true,
                 height: 460,
                 margin: { t: 40, r: 20, b: 60, l: 50 },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: '#0F172A' },
               }}
               config={{
                 responsive: true,
@@ -192,9 +195,9 @@ function MirrorModeContent({ data }) {
         </section>
       )}
 
-      <section className="rounded-3xl border border-indigo-200 bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-700 p-8 text-indigo-50 shadow-2xl shadow-indigo-900/30">
-        <h3 className="text-sm uppercase tracking-[0.4em] text-indigo-200">Energy Pattern</h3>
-        <p className="mt-4 text-lg leading-relaxed">{energyNarrative}</p>
+      <section className="rounded-3xl border border-indigo-100 bg-gradient-to-br from-indigo-600/10 via-white to-sky-100/70 p-8 text-gray-800 shadow-xl shadow-indigo-200/60">
+        <h3 className="text-sm uppercase tracking-[0.4em] text-indigo-500/70">Energy Pattern</h3>
+        <p className="mt-4 text-lg leading-relaxed text-gray-700">{energyNarrative}</p>
       </section>
     </div>
   )

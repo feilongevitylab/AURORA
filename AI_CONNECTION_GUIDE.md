@@ -113,11 +113,11 @@ python main.py
 ```json
 {
   "query": "分析我的 HRV 数据",
-  "mode": "mirror"  // 可选: "companion", "mirror", "science"
+  "mode": "energy"  // 可选: "energy", "longevity"
 }
 ```
 
-**响应结构（Mirror 模式示例）：**
+**响应结构（Energy Insight 模式示例）：**
 ```json
 {
   "hero": {
@@ -145,9 +145,8 @@ python main.py
 ```
 
 **模式说明：**
-- `companion`: 陪伴模式 - 生成温暖、支持性的回答
-- `mirror`: Mirror 模式 - 提供层级化的生理/心理/意义视图和意识拓扑叙事
-- `science`: 科学探索模式 - 生成专业、科学的回答
+- `energy`: Energy Insight 模式 - 提供层级化的生理/心理/意义视图和意识拓扑叙事
+- `longevity`: Longevity Exploration 模式 - 生成专业、科学的回答，聚焦恢复与长效表现
 
 #### 4. `GET /health`
 健康检查端点

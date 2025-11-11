@@ -108,9 +108,8 @@ class AuroraCoreAgent:
         4. Otherwise → run all and return combined results
         
         Mode-based behavior:
-        - companion mode: Prioritize NarrativeAgent with warm tone
-        - mirror mode: Combine DataAgent + VizAgent + NarrativeAgent with layered insights
-        - science mode: Prioritize NarrativeAgent with professional tone
+        - energy mode: Combine DataAgent + VizAgent + NarrativeAgent with layered insights
+        - longevity mode: Prioritize NarrativeAgent with professional tone
         
         Args:
             query: User's natural language query
@@ -129,23 +128,8 @@ class AuroraCoreAgent:
         result = {}
         
         # Mode-based routing
-        if mode == "companion":
-            # Companion mode: Prioritize narrative/insight
-            if "data" not in result:
-                data_result = self.data_agent.run(query, context)
-                self._log_agent_execution(self.data_agent.name, data_result)
-                result_data = data_result.get("result", {})
-                result["data"] = result_data
-                dataset_label = result_data.get("data_summary", {}).get("dataset")
-                if dataset_label:
-                    context["dataset"] = dataset_label
-            
-            narrative_result = self.narrative_agent.run(result["data"], mode=mode, context=context)
-            self._log_agent_execution(self.narrative_agent.name, narrative_result)
-            result["insight"] = narrative_result.get("result", {}).get("explanation", "")
-            
-        elif mode == "mirror":
-            # Mirror mode: Combine layered data, visualization, and narrative
+        if mode == "energy":
+            # Energy mode: Combine layered data, visualization, and narrative
             data_result = self.data_agent.run(query, context)
             self._log_agent_execution(self.data_agent.name, data_result)
             result_data = data_result.get("result", {})
@@ -178,8 +162,8 @@ class AuroraCoreAgent:
             if mirror_story.get("summary"):
                 result["insight"] = mirror_story["summary"]
             
-        elif mode == "science":
-            # Science mode: Prioritize narrative with professional tone
+        elif mode == "longevity":
+            # Longevity mode: Prioritize narrative with professional tone
             if "data" not in result:
                 data_result = self.data_agent.run(query, context)
                 self._log_agent_execution(self.data_agent.name, data_result)

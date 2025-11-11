@@ -44,9 +44,9 @@ class VizAgent:
 
         alternate_views: List[Dict[str, Any]] = []
 
-        if dataset_label == "science_hrv_stress":
-            fig, alternate_views, recommendations = self._create_science_hrv_stress_views(data)
-            chart_type = "science_hrv_stress_scatter"
+        if dataset_label == "longevity_hrv_stress":
+            fig, alternate_views, recommendations = self._create_longevity_hrv_stress_views(data)
+            chart_type = "longevity_hrv_stress_scatter"
         elif data and data.get("mirror_trend"):
             fig = self._create_mirror_trend_chart(data["mirror_trend"])
             chart_type = "mirror_trend"
@@ -222,11 +222,11 @@ class VizAgent:
         """
         return load_base_hrv_df()
 
-    def _create_science_hrv_stress_views(
+    def _create_longevity_hrv_stress_views(
         self, data: Dict[str, Any]
     ) -> (go.Figure, List[Dict[str, Any]], List[str]):
         """
-        Build the specialized visualisations for the science HRV-under-stress dataset.
+        Build the specialized visualisations for the longevity HRV-under-stress dataset.
         """
         trend_records = data.get("hrv_stress_trend", [])
         if not trend_records:

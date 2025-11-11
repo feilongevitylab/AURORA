@@ -96,7 +96,7 @@ class NarrativeAgent:
                 - correlations: Correlation coefficients
                 - insights: List of insights from analysis
                 - data_summary: Data metadata
-            mode: Optional mode parameter (companion, status, science)
+            mode: Optional mode parameter (energy, longevity)
         
         Returns:
             Dictionary containing narrative text and explanation
@@ -116,7 +116,7 @@ class NarrativeAgent:
             statistics = data_summary.get("statistics", {})
             insights = data_summary.get("insights", [])
             
-            if mode == "mirror":
+            if mode == "energy":
                 mirror_story = self._generate_mirror_story(
                     data_summary=data_summary,
                     statistics=statistics,
@@ -189,11 +189,9 @@ class NarrativeAgent:
             dataset = context.get("dataset") or data_summary.get("data_summary", {}).get("dataset")
 
             persona_base = "You are Aurora, an empathetic AI wellness guide who combines scientific insight with human warmth."
-            if mode == "science":
+            if mode == "longevity":
                 persona_base += " Respond as Aurora in a professional, evidence-based tone, citing physiological mechanisms when relevant."
-            elif mode == "companion":
-                persona_base += " Respond as Aurora in a gentle, encouraging tone that focuses on emotional support and actionable guidance."
-            elif mode == "mirror":
+            elif mode == "energy":
                 persona_base += " Respond as Aurora with reflective, narrative language that helps the user notice patterns in their wellbeing."
 
             system_message = SystemMessage(
@@ -203,12 +201,10 @@ class NarrativeAgent:
             prompt_lines = []
             if raw_question:
                 prompt_lines.append(f"User question: {raw_question}")
-            if dataset == "science_cortisol_focus":
+            if dataset == "longevity_cortisol_focus":
                 prompt_lines.append("The dataset reflects cortisol rhythms, cognitive performance, and sleep dynamics. Focus on how neuroendocrine factors relate to the user's question.")
-            elif dataset == "science_hrv_stress":
+            elif dataset == "longevity_hrv_stress":
                 prompt_lines.append("The dataset tracks repeated HRV readings as stress load accumulates across sessions. Explain why HRV falls when stress rises, referencing correlation strength, bucket comparisons, and timeline shifts.")
-            elif dataset == "companion_sleep_relaxation":
-                prompt_lines.append("The dataset reflects restorative habits, sleep quality, and relaxation patterns. Use it to ground soothing, practical suggestions.")
             else:
                 prompt_lines.append("The dataset reflects heart rate variability, stress load, and recovery capacity.")
             prompt_lines.append("Use the following data summary as context when it is helpful:")
@@ -270,15 +266,15 @@ class NarrativeAgent:
         
         dataset = data_summary.get("data_summary", {}).get("dataset")
 
-        if dataset == "science_cortisol_focus":
+        if dataset == "longevity_cortisol_focus":
             focus_buckets = data_summary.get("focus_buckets", {})
             if focus_buckets:
-                parts.append("\nFocus buckets (science dataset):")
+                parts.append("\nFocus buckets (longevity dataset):")
                 for bucket, metrics in focus_buckets.items():
                     parts.append(f"  {bucket}:")
                     for metric, value in metrics.items():
                         parts.append(f"    {metric}: {value}")
-        elif dataset == "science_hrv_stress":
+        elif dataset == "longevity_hrv_stress":
             stress_buckets = data_summary.get("stress_bucket_summary", {})
             if stress_buckets:
                 parts.append("\nStress buckets (HRV vs stress dataset):")
@@ -306,14 +302,6 @@ class NarrativeAgent:
                         f"HRV {row.get('hrv')} ms, stress {row.get('stress_score')}, "
                         f"ΔHRV {row.get('hrv_delta_from_baseline')} ms"
                     )
-        elif dataset == "companion_sleep_relaxation":
-            sleep_buckets = data_summary.get("sleep_buckets", {})
-            if sleep_buckets:
-                parts.append("\nSleep buckets (companion dataset):")
-                for bucket, metrics in sleep_buckets.items():
-                    parts.append(f"  {bucket}:")
-                    for metric, value in metrics.items():
-                        parts.append(f"    {metric}: {value}")
         else:
             if "hrv_by_stress_level" in data_summary:
                 parts.append("\nHRV by stress level:")
@@ -346,86 +334,15 @@ class NarrativeAgent:
     ) -> str:
         """
         Generate GPT-5-style explanation based on data patterns and mode.
-        
+
         Simulates GPT-5's ability to identify patterns and generate
         scientific explanations without using API keys.
-        
+
         Args:
-            mode: Optional mode parameter (companion, status, science)
+            mode: Optional mode parameter (energy, longevity)
         """
-        # Mode-specific tone adjustment
-        if mode == "companion":
-            tone_prefix = (
-                "I'm here with you. Let's explore how your body is responding together. "
-            )
-            explanation_parts = [tone_prefix]
-
-            if raw_question:
-                explanation_parts.append(
-                    f"You asked about “{raw_question}”. Here's what Aurora sees when integrating your latest data:"
-                )
-
-            if dataset == "science_cortisol_focus":
-                cortisol_stats = statistics.get("cortisol_morning", {})
-                focus_stats = statistics.get("focus_index", {})
-                explanation_parts.append(
-                    f"Morning cortisol averages {cortisol_stats.get('mean', 'N/A')} µg/dL while focus index trends near {focus_stats.get('mean', 'N/A')}."
-                )
-                if correlations:
-                    key_corr = max(correlations.items(), key=lambda item: abs(item[1]))
-                    explanation_parts.append(f"Notable correlation {key_corr[0].replace('_vs_', ' vs ')} at {key_corr[1]}, hinting at endocrine-cognitive links.")
-            elif dataset == "companion_sleep_relaxation":
-                sleep_stats = statistics.get("sleep_hours", {})
-                anxiety_stats = statistics.get("anxiety_score", {})
-                explanation_parts.append(
-                    f"You're averaging {sleep_stats.get('mean', 'N/A')} hours of sleep with anxiety hovering around {anxiety_stats.get('mean', 'N/A')} on our scale."
-                )
-                if correlations:
-                    key_corr = max(correlations.items(), key=lambda item: abs(item[1]))
-                    explanation_parts.append(f"I notice the strongest relationship appears between {key_corr[0].replace('_vs_', ' vs ')} at {key_corr[1]}.")
-            elif dataset == "science_hrv_stress":
-                avg_hrv = statistics.get("hrv", {}).get("mean")
-                avg_stress = statistics.get("stress_score", {}).get("mean")
-                corr_value = correlations.get("hrv_vs_stress_score")
-                explanation_parts.append(
-                    f"Across the recent sessions your HRV averages {avg_hrv} ms while subjective stress sits near {avg_stress}."
-                )
-                if corr_value is not None:
-                    explanation_parts.append(
-                        f"The relationship is strongly inverse (r={corr_value:.3f}); when stress spikes, HRV falls away from baseline."
-                    )
-                if insights:
-                    explanation_parts.append(insights[0])
-            elif hrv_by_stress:
-                if insights:
-                    explanation_parts.append(insights[0])
-                hrv_stress_corr = correlations.get("hrv_vs_stress") if correlations else None
-                if hrv_stress_corr is not None:
-                    explanation_parts.append(
-                        "Heart rate variability tends to decrease with higher stress levels, "
-                        "reflecting autonomic imbalance. This inverse relationship indicates "
-                        "that elevated stress disrupts the parasympathetic nervous system's "
-                        "ability to maintain optimal HRV, which is a critical indicator of "
-                        "cardiovascular health and recovery capacity."
-                    )
-                else:
-                    explanation = (
-                        "Heart rate variability tends to decrease with higher stress levels, "
-                        "reflecting autonomic imbalance. This pattern is consistent with established "
-                        "physiological principles where chronic stress activates the sympathetic nervous system, "
-                        "reducing the parasympathetic activity that supports optimal HRV."
-                    )
-            else:
-                explanation = (
-                    "Heart rate variability tends to decrease with higher stress levels, "
-                    "reflecting autonomic imbalance. This pattern is consistent with established "
-                    "physiological principles where chronic stress activates the sympathetic nervous system, "
-                    "reducing the parasympathetic activity that supports optimal HRV."
-                )
-            return " ".join(explanation_parts)
-            
-        elif mode == "science":
-            if dataset == "science_hrv_stress":
+        if mode == "longevity":
+            if dataset == "longevity_hrv_stress":
                 corr_value = correlations.get("hrv_vs_stress_score", 0)
                 avg_delta = statistics.get("hrv_delta_from_baseline", {}).get("mean")
                 explanation_lines = [
@@ -441,7 +358,6 @@ class NarrativeAgent:
                 if insights:
                     explanation_lines.extend(insights[:2])
                 return " ".join(explanation_lines)
-            # Professional, scientific tone for science mode
             if hrv_by_stress and correlations:
                 hrv_stress_corr = correlations.get("hrv_vs_stress", 0)
                 if hrv_stress_corr < -0.5:
@@ -476,13 +392,10 @@ class NarrativeAgent:
                     "autonomic balance, while lower HRV may suggest increased stress or reduced recovery capacity."
                 )
             return explanation
-        
-        # Default behavior (status mode or no mode specified)
-        # Analyze HRV vs Stress relationship
+
         if hrv_by_stress and correlations:
             hrv_stress_corr = correlations.get("hrv_vs_stress", 0)
-            
-            # Core explanation based on correlation
+
             if hrv_stress_corr < -0.5:
                 explanation = (
                     "Heart rate variability tends to decrease with higher stress levels, "
@@ -514,14 +427,13 @@ class NarrativeAgent:
                     "The relationship between stress and HRV requires consideration of these confounding variables."
                 )
         else:
-            # Fallback explanation
             explanation = (
                 "Heart rate variability tends to decrease with higher stress levels, "
                 "reflecting autonomic imbalance. This pattern is consistent with established "
                 "physiological principles where chronic stress activates the sympathetic nervous system, "
                 "reducing the parasympathetic activity that supports optimal HRV."
             )
-        
+
         return explanation
     
     def _generate_narrative(

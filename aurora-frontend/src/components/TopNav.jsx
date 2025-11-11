@@ -66,7 +66,7 @@ const initialSignUpForm = {
   wearablePreference: 'none',
 }
 
-function TopNav() {
+function TopNav({ isLanding = false }) {
   const {
     isRegistered,
     userProfile,
@@ -83,6 +83,7 @@ function TopNav() {
   const [formError, setFormError] = useState(null)
   const [formLoading, setFormLoading] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
+  const [successMessage, setSuccessMessage] = useState(null)
   const [signUpStep, setSignUpStep] = useState(1)
 
   const accountMenuItems = [
@@ -171,6 +172,7 @@ function TopNav() {
 
   useEffect(() => {
     setFormError(null)
+    setSuccessMessage(null)
     if (authModalMode === 'sign-up') {
       setSignUpStep(1)
     }
@@ -286,8 +288,10 @@ function TopNav() {
         }
 
         if (signUpForm.wearablePreference === 'none') {
-          window.alert('Registration complete! Welcome to Aurora.')
+          setSuccessMessage('Registration complete! Welcome to Aurora.')
           markRegistered(mockUser)
+          setFormLoading(false)
+          return
         } else {
           const payload = {
             ...mockUser,
@@ -298,11 +302,15 @@ function TopNav() {
 
           try {
             const response = await axios.post(`${API_BASE_URL}/api/register`, payload)
-            window.alert('Registration complete! Welcome to Aurora.')
+            setSuccessMessage('Registration complete! Welcome to Aurora.')
             markRegistered(response.data.user)
+            setFormLoading(false)
+            return
           } catch (error) {
-            window.alert('Registration complete! Welcome to Aurora.')
+            setSuccessMessage('Registration complete! Welcome to Aurora.')
             markRegistered(mockUser)
+            setFormLoading(false)
+            return
           }
         }
       } else {
@@ -333,11 +341,6 @@ function TopNav() {
     window.open('mailto:care@aurorawellness.ai?subject=Reset%20my%20Aurora%20password', '_blank')
   }
 
-  const openScienceExploration = () => {
-    setAuthModalMode('science')
-    openAuthModal('science')
-  }
-
   const callInsightApi = async ({ query, mode, data = {} }) => {
     return axios.post(`${API_BASE_URL}/api/insight`, {
       query,
@@ -348,85 +351,106 @@ function TopNav() {
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center">
-        <div className="flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3 pointer-events-auto" />
+      {!isLanding && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center">
+          <div className="flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3 pointer-events-auto" />
 
-          <div className="flex items-center gap-4 pointer-events-auto">
-            {!isRegistered && (
-              <>
-                <button
-                  type="button"
-                  className="rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-indigo-600 shadow transition hover:bg-white"
-                  onClick={() => openAuthModal('sign-up')}
-                >
-                  Sign Up
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-white/60 px-5 py-2 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
-                  onClick={() => openAuthModal('sign-in')}
-                >
-                  Sign In
-                </button>
-              </>
-            )}
-
-            {isRegistered && (
-              <div className="flex items-center gap-3">
-                {socialIcons.map((item) => (
-                  <a
-                    key={item.name}
-                    href={item.href}
-                    aria-label={item.name}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-white/40 text-white transition hover:border-white/80 hover:bg-white/10"
-                  >
-                    {item.svg}
-                  </a>
-                ))}
-                <div
-                  className="relative"
-                  onMouseEnter={() => setIsAccountMenuOpen(true)}
-                  onMouseLeave={() => setIsAccountMenuOpen(false)}
-                >
+            <div className="flex items-center gap-4 pointer-events-auto">
+              {!isRegistered && (
+                <>
                   <button
                     type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md shadow-slate-900/30 transition hover:shadow-lg"
-                    title={userProfile?.nickname || userProfile?.email || 'Aurora Member'}
+                    className="rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-indigo-600 shadow transition hover:bg-white"
+                    onClick={() => openAuthModal('sign-up')}
                   >
-                    <span className="text-sm font-semibold text-indigo-600">{avatarInitial}</span>
+                    Sign Up
                   </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-white/60 px-5 py-2 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+                    onClick={() => openAuthModal('sign-in')}
+                  >
+                    Sign In
+                  </button>
+                </>
+              )}
 
-                  {isAccountMenuOpen && (
-                    <div className="absolute right-0 top-12 w-56 rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl shadow-slate-900/20 backdrop-blur">
-                      <div className="space-y-1">
-                        {accountMenuItems.map((item) => (
-                          <button
-                            key={item.label}
-                            type="button"
-                            onClick={item.onClick}
-                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-600"
-                          >
-                            {item.icon}
-                            <span>{item.label}</span>
-                          </button>
-                        ))}
+              {isRegistered && (
+                <div className="flex items-center gap-3">
+                  {socialIcons.map((item) => (
+                    <a
+                      key={item.name}
+                      href={item.href}
+                      aria-label={item.name}
+                      className="flex h-8 w-8 items-center justify-center rounded-full border border-white/40 text-white transition hover:border-white/80 hover:bg-white/10"
+                    >
+                      {item.svg}
+                    </a>
+                  ))}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setIsAccountMenuOpen(true)}
+                    onMouseLeave={() => setIsAccountMenuOpen(false)}
+                  >
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md shadow-slate-900/30 transition hover:shadow-lg"
+                      title={userProfile?.nickname || userProfile?.email || 'Aurora Member'}
+                    >
+                      <span className="text-sm font-semibold text-indigo-600">{avatarInitial}</span>
+                    </button>
+
+                    {isAccountMenuOpen && (
+                      <div className="absolute right-0 top-12 w-56 rounded-2xl border border-white/60 bg-white/95 p-2 shadow-xl shadow-slate-900/20 backdrop-blur">
+                        <div className="space-y-1">
+                          {accountMenuItems.map((item) => (
+                            <button
+                              key={item.label}
+                              type="button"
+                              onClick={item.onClick}
+                              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-600"
+                            >
+                              {item.icon}
+                              <span>{item.label}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
           <div className="w-full max-w-lg rounded-3xl bg-white/95 p-8 shadow-2xl shadow-slate-900/40 backdrop-blur">
             <div className="mb-6 text-center">
               <p className="text-sm uppercase tracking-[0.35em] text-indigo-400">Aurora Access</p>
-              {authModalMode === 'sign-in' ? (
+              {successMessage ? (
+                <div className="space-y-6 text-center">
+                  <div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/60 px-6 py-5 shadow-inner shadow-indigo-100">
+                    <p className="text-base font-semibold text-indigo-700">{successMessage}</p>
+                    <p className="mt-2 text-sm text-indigo-600">
+                      Aurora is ready to learn your rhythms.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSuccessMessage(null)
+                      closeAuthModal()
+                    }}
+                    className="rounded-full bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-700"
+                  >
+                    Continue
+                  </button>
+                </div>
+              ) : authModalMode === 'sign-in' ? (
                 <h2 className="mt-3 text-2xl font-semibold text-slate-900">Sign in to continue the journey</h2>
               ) : (
                 <h2 className="mt-3 text-2xl font-semibold text-slate-900">Sign up to deepen the journey</h2>
@@ -550,7 +574,7 @@ function TopNav() {
                       <div>
                         <div className="flex items-baseline justify-between">
                           <label className="block text-sm font-medium text-slate-700">Gender</label>
-                          <span className="text-xs text-slate-500">(supports Mirror accuracy)</span>
+                          <span className="text-xs text-slate-500">(supports Energy Insight accuracy)</span>
                         </div>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {genderOptions.map((option) => {
@@ -769,6 +793,9 @@ function TopNav() {
               <div>
                 {authModalMode === 'sign-up' ? (
                   <>
+                    <p className="mb-2 text-xs text-slate-400">
+                      Aurora respects every user's privacy and will never proactively share your data with any third party.
+                    </p>
                     Already have an account?{' '}
                     <button
                       type="button"

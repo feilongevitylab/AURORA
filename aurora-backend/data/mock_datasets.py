@@ -61,15 +61,6 @@ _SCIENCE_CORTISOL_FOCUS_DATA: Dict[str, list] = {
     "sleep_duration": [7.2, 7.5, 6.8, 7.9, 6.5, 7.3, 7.1, 8.1, 7.4, 6.9],
 }
 
-_COMPANION_SLEEP_RELAXATION_DATA: Dict[str, list] = {
-    "id": list(range(1, 11)),
-    "sleep_hours": [6.2, 7.4, 5.8, 7.9, 6.5, 7.1, 8.0, 6.8, 7.6, 6.3],
-    "sleep_quality": [62, 78, 55, 82, 68, 75, 88, 70, 81, 60],
-    "breath_rate": [17, 15, 18, 14, 16, 15, 13, 16, 14, 18],
-    "anxiety_score": [62, 48, 70, 45, 58, 52, 40, 55, 49, 68],
-    "relaxation_minutes": [12, 26, 8, 32, 18, 24, 36, 20, 28, 10],
-}
-
 _SCIENCE_HRV_STRESS_DATA: Dict[str, list] = {
     "day": [
         "Mon",
@@ -132,8 +123,8 @@ def load_base_hrv_df() -> pd.DataFrame:
     return pd.DataFrame(_BASE_HRV_DATA).copy()
 
 
-def load_science_cortisol_focus_df() -> pd.DataFrame:
-    """Return the science-mode dataset exploring cortisol and focus."""
+def load_longevity_cortisol_focus_df() -> pd.DataFrame:
+    """Return the longevity-mode dataset exploring cortisol and focus."""
     df = pd.DataFrame(_SCIENCE_CORTISOL_FOCUS_DATA)
     df = df.copy()
     df["cortisol_ratio"] = (df["cortisol_morning"] / df["cortisol_evening"]).round(2)
@@ -141,19 +132,8 @@ def load_science_cortisol_focus_df() -> pd.DataFrame:
     return df
 
 
-def load_companion_sleep_relaxation_df() -> pd.DataFrame:
-    """Return the companion-mode dataset focusing on sleep and relaxation."""
-    df = pd.DataFrame(_COMPANION_SLEEP_RELAXATION_DATA)
-    df = df.copy()
-    df["sleep_efficiency"] = ((df["sleep_quality"] / df["sleep_hours"]).clip(0, 100)).round(1)
-    df["relaxation_index"] = (
-        (df["relaxation_minutes"] / (df["anxiety_score"] + 1)) * 100
-    ).round(1)
-    return df
-
-
-def load_science_hrv_stress_df() -> pd.DataFrame:
-    """Return a science-mode dataset that highlights HRV changes under stress."""
+def load_longevity_hrv_stress_df() -> pd.DataFrame:
+    """Return a longevity-mode dataset that highlights HRV changes under stress."""
     df = pd.DataFrame(_SCIENCE_HRV_STRESS_DATA).copy()
     baseline = df.loc[0, "hrv"]
     df["hrv_delta_from_baseline"] = (df["hrv"] - baseline).round(2)

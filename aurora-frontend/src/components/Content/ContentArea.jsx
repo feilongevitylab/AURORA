@@ -1,5 +1,4 @@
 import { useMode, MODES } from '../../contexts/ModeContext'
-import CompanionModeContent from './CompanionModeContent'
 import MirrorModeContent from './MirrorModeContent'
 import ScienceModeContent from './ScienceModeContent'
 
@@ -27,14 +26,12 @@ function ContentArea({ data, loading, error }) {
   }
 
   switch (currentMode) {
-    case MODES.COMPANION:
-      return <CompanionModeContent data={data} />
     case MODES.MIRROR:
       return <MirrorModeContent data={data} />
     case MODES.SCIENCE:
       return <ScienceModeContent data={data} />
     default:
-      return <CompanionModeContent data={data} />
+      return <MirrorModeContent data={data} />
   }
 }
 
