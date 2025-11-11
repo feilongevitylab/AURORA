@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
+import PropTypes from 'prop-types'
 import { useAuth } from '../contexts/AuthContext'
 
-function LandingPage() {
+function LandingPage({ onLearnMore }) {
   const { openAuthModal } = useAuth()
 
   const highlights = useMemo(
@@ -40,6 +41,19 @@ function LandingPage() {
             Aurora is a premier longevity science advisory platform for elites. We translate complex aging biology
             through a systemic lens and accessible business metaphors, spotlighting how psychological stress and
             physiological aging synergize to erode mind-body energy.
+            {onLearnMore && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={onLearnMore}
+                  className="inline-flex items-center gap-2 font-semibold text-sky-300 underline-offset-4 transition hover:text-sky-200 hover:underline"
+                >
+                  Learn more about Aurora
+                  <span aria-hidden="true">→</span>
+                </button>
+              </>
+            )}
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
@@ -74,6 +88,14 @@ function LandingPage() {
       </div>
     </div>
   )
+}
+
+LandingPage.propTypes = {
+  onLearnMore: PropTypes.func,
+}
+
+LandingPage.defaultProps = {
+  onLearnMore: undefined,
 }
 
 export default LandingPage

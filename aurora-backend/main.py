@@ -205,7 +205,7 @@ async def register_user(request: RegistrationRequest, db: Session = Depends(get_
         normalized_gender = "unspecified"
 
     wearable_choice = request.wearable_preference.lower().strip() if request.wearable_preference else "none"
-    if wearable_choice not in {"smartwatch", "ouraring", "none"}:
+    if wearable_choice not in {"smartwatch", "smartring", "none"}:
         wearable_choice = "none"
 
     trimmed_topics = [topic for topic in (request.topics or []) if topic != "other"]

@@ -50,7 +50,7 @@ const topicOptions = [
 const wearableOptions = [
   { value: 'none', label: 'Not now' },
   { value: 'smartwatch', label: 'Smart watch' },
-  { value: 'ouraring', label: 'Oura Ring' },
+  { value: 'smartring', label: 'smart ring' },
 ]
 
 const API_BASE_URL = 'http://localhost:8000'
@@ -66,7 +66,7 @@ const initialSignUpForm = {
   wearablePreference: 'none',
 }
 
-function TopNav({ isLanding = false }) {
+function TopNav({ isLanding = false, onNavigateAbout }) {
   const {
     isRegistered,
     userProfile,
@@ -378,6 +378,13 @@ function TopNav({ isLanding = false }) {
 
               {isRegistered && (
                 <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onNavigateAbout}
+                    className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white transition hover:border-white hover:bg-white/10"
+                  >
+                    About Aurora
+                  </button>
                   {socialIcons.map((item) => (
                     <a
                       key={item.name}
@@ -793,7 +800,7 @@ function TopNav({ isLanding = false }) {
               <div>
                 {authModalMode === 'sign-up' ? (
                   <>
-                    <p className="mb-2 text-xs text-slate-400">
+                    <p className="mb-2 text-xs text-slate-900">
                       Aurora respects every user's privacy and will never proactively share your data with any third party.
                     </p>
                     Already have an account?{' '}

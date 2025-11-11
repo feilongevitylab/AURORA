@@ -5,6 +5,7 @@ import TopNav from './components/TopNav'
 import HeroSection from './components/HeroSection/HeroSection'
 import ContentArea from './components/Content/ContentArea'
 import LandingPage from './components/LandingPage'
+import AboutAurora from './components/AboutAurora'
 
 const createEmptyState = () =>
   Object.values(MODES).reduce((acc, mode) => {
@@ -19,10 +20,18 @@ function AppContent() {
   const [errors, setErrors] = useState(() => createEmptyState())
   const [loadingMode, setLoadingMode] = useState(null)
   const [hasSubmitted, setHasSubmitted] = useState(false)
-  const [showLanding, setShowLanding] = useState(!isRegistered)
+  const [view, setView] = useState(isRegistered ? 'app' : 'landing')
 
   useEffect(() => {
-    setShowLanding(!isRegistered)
+    setView((previous) => {
+      if (isRegistered) {
+        return 'app'
+      }
+      if (previous === 'about') {
+        return 'about'
+      }
+      return 'landing'
+    })
   }, [isRegistered])
 
   const handleResponse = (mode, data) => {
@@ -52,18 +61,27 @@ function AppContent() {
   const currentError = errors[currentMode] || null
   const isLoading = loadingMode === currentMode
 
-  if (showLanding) {
+  if (view === 'landing') {
     return (
       <>
-        <TopNav isLanding />
-        <LandingPage />
+        <TopNav isLanding onNavigateAbout={() => setView('about')} />
+        <LandingPage onLearnMore={() => setView('about')} />
+      </>
+    )
+  }
+
+  if (view === 'about') {
+    return (
+      <>
+        <TopNav isLanding onNavigateAbout={() => setView('about')} />
+        <AboutAurora onBack={() => setView('landing')} onStart={() => setView(isRegistered ? 'app' : 'landing')} />
       </>
     )
   }
 
   return (
     <div className="relative min-h-screen">
-      <TopNav />
+      <TopNav onNavigateAbout={() => setView('about')} />
 
       <HeroSection
         onResponse={handleResponse}
